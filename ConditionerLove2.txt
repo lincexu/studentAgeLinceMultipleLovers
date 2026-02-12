@@ -1,0 +1,160 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Config;
+using Sdk;
+
+namespace Condition
+{
+	// Token: 0x020005EF RID: 1519
+	public class ConditionerLove2 : Conditioner
+	{
+		// Token: 0x06002AC5 RID: 10949 RVA: 0x0015E982 File Offset: 0x0015CB82
+		public ConditionerLove2()
+		{
+		}
+
+		// Token: 0x06002AC6 RID: 10950 RVA: 0x0015E98C File Offset: 0x0015CB8C
+		public ConditionerLove2(Conditioner _conditioner, List<double> _condition) : base(_conditioner, _condition)
+		{
+			if (this.subType == 1)
+			{
+				this.value = (int)_condition[2];
+				return;
+			}
+			if (this.subType == 2)
+			{
+				this.value = (int)_condition[2];
+				this.npcId = (int)_condition[3];
+			}
+		}
+
+		// Token: 0x06002AC7 RID: 10951 RVA: 0x0015E9E0 File Offset: 0x0015CBE0
+		[return: TupleElementNames(new string[]
+		{
+			"cur",
+			"total"
+		})]
+		public override ValueTuple<float, float> OnGetProgress()
+		{
+			if (this.subType == 1)
+			{
+				ValueTuple<int, int> valueTuple;
+				if (this.value == 1)
+				{
+					valueTuple = ((Singleton<RoleMgr>.Ins.GetLoveData().loverId > 0) ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1));
+					return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+				}
+				valueTuple = ((Singleton<RoleMgr>.Ins.GetLoveData().loverId == 0) ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1));
+				return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+			}
+			else if (this.subType == 2)
+			{
+				ValueTuple<int, int> valueTuple;
+				if (this.value == 1)
+				{
+					valueTuple = ((Singleton<RoleMgr>.Ins.GetLoveData().loverId == this.npcId) ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1));
+					return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+				}
+				valueTuple = ((Singleton<RoleMgr>.Ins.GetLoveData().loverId != this.npcId) ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1));
+				return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+			}
+			else
+			{
+				if (this.subType == 22 || this.subType == -22)
+				{
+					ValueTuple<int, int> valueTuple = this.OnIsMatch() ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1);
+					return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+				}
+				return new ValueTuple<float, float>(0f, 0f);
+			}
+		}
+
+		// Token: 0x06002AC8 RID: 10952 RVA: 0x0015EB4C File Offset: 0x0015CD4C
+		public override bool OnIsMatch()
+		{
+			if (this.subType == 1)
+			{
+				if (this.value == 1)
+				{
+					return Singleton<RoleMgr>.Ins.GetLoveData().loverId > 0;
+				}
+				return Singleton<RoleMgr>.Ins.GetLoveData().loverId == 0;
+			}
+			else if (this.subType == 2)
+			{
+				if (this.value == 1)
+				{
+					return Singleton<RoleMgr>.Ins.GetLoveData().loverId == this.npcId;
+				}
+				return Singleton<RoleMgr>.Ins.GetLoveData().loverId != this.npcId;
+			}
+			else
+			{
+				if (this.subType != 22 && this.subType != -22)
+				{
+					return false;
+				}
+				PersonCfg personCfg;
+				if (Singleton<RoleMgr>.Ins.GetLoveData().loverId <= 0 || !Cfg.PersonCfgMap.TryGetValue(Singleton<RoleMgr>.Ins.GetLoveData().loverId, out personCfg))
+				{
+					return this.subType != 22;
+				}
+				if (this.subType == 22)
+				{
+					return personCfg.gender == (int)Singleton<RoleMgr>.Ins.GetRole().Sex;
+				}
+				return personCfg.gender != (int)Singleton<RoleMgr>.Ins.GetRole().Sex;
+			}
+		}
+
+		// Token: 0x06002AC9 RID: 10953 RVA: 0x0015EC68 File Offset: 0x0015CE68
+		public override string OnToString(int _type = 0)
+		{
+			string text = null;
+			if (this.subType == 1)
+			{
+				if (this.value == 1)
+				{
+					text = DescCtrl.GetTxt(2112);
+				}
+				else
+				{
+					text = DescCtrl.GetTxt(2111);
+				}
+			}
+			else if (this.subType == 2)
+			{
+				if (this.value == 1)
+				{
+					text = DescCtrl.GetTxt<string>(2113, new string[]
+					{
+						Cfg.PersonCfgMap[this.npcId].name
+					});
+				}
+				else
+				{
+					text = DescCtrl.GetTxt<string>(2114, new string[]
+					{
+						Cfg.PersonCfgMap[this.npcId].name
+					});
+				}
+			}
+			else if (this.subType != 22)
+			{
+				int subType = this.subType;
+			}
+			if (text != null)
+			{
+				return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
+			}
+			return null;
+		}
+
+		// Token: 0x04002F3C RID: 12092
+		public int value;
+
+		// Token: 0x04002F3D RID: 12093
+		public int npcId;
+	}
+}

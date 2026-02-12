@@ -1,0 +1,655 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Config;
+using Sdk;
+using TheEntity;
+using UnityEngine;
+
+// Token: 0x0200009C RID: 156
+public class LoveData : BaseData
+{
+	// Token: 0x0600058D RID: 1421 RVA: 0x00034B74 File Offset: 0x00032D74
+	public override void NewRound()
+	{
+		this.browserRibbonCntThisRound = (int)RoleMgr.GetConstValue(3401);
+		List<int> list = this.topicsThisRound;
+		if (list != null)
+		{
+			list.Clear();
+		}
+		this.socialTopicCntThisRound = 0;
+		this.hasGreeting = false;
+		this.breakfastId = 0;
+		if (this.loverId == 0)
+		{
+			return;
+		}
+		this.CheckLoveBreakfast(false);
+		Singleton<RoleMgr>.Ins.GetRole().UpdateAttr(520, (float)(-(float)this.GetLoveYear()), 1f, null, 2);
+		Role role = Singleton<RoleMgr>.Ins.GetRole(this.loverId);
+		if (role != null && role.IsBirthday())
+		{
+			Singleton<TipsMgr>.Ins.AddNotifyTxt(DescCtrl.GetTxt<string>(1098, new string[]
+			{
+				role.Name
+			}), 0, null);
+		}
+	}
+
+	// Token: 0x0600058E RID: 1422 RVA: 0x00034C30 File Offset: 0x00032E30
+	public void SetLover(int _roleId)
+	{
+		int num = this.loverId;
+		this.loverId = _roleId;
+		this.breakfastId = 0;
+		this.fix = 1;
+		Singleton<RoleMgr>.Ins.GetRole().SetAttr(520, 5f, 0f);
+		if (_roleId > 0)
+		{
+			this.loveDate = Singleton<RoundMgr>.Ins.Now();
+			if (this.historyLoverIds == null)
+			{
+				this.historyLoverIds = new List<int>();
+			}
+			if (!this.historyLoverIds.Contains(_roleId))
+			{
+				this.historyLoverIds.Add(_roleId);
+			}
+			Singleton<FuncMgr>.Ins.OpenFunc(20, true);
+			Singleton<RecordMgr>.Ins.AddRecord(4, null, new float[]
+			{
+				(float)_roleId,
+				520f
+			});
+			ToastHelper.Toast<string>(116, new string[]
+			{
+				RoleMgr.GetRoleName(_roleId, PersonNameDefine.Full, null),
+				Cfg.RelationCfgMap[520].name
+			});
+		}
+		else if (num > 0)
+		{
+			Singleton<FuncMgr>.Ins.CloseFunc(20);
+			ToastHelper.Toast<string>(861, new string[]
+			{
+				RoleMgr.GetRoleName(num, PersonNameDefine.Full, null)
+			});
+		}
+		Singleton<GlobalMgr>.Ins.CheckAchievement(52, 0);
+		EventMgr.Send(1601);
+	}
+
+	// Token: 0x0600058F RID: 1423 RVA: 0x00034D5C File Offset: 0x00032F5C
+	public int GetLoveYear()
+	{
+		if (this.loverId <= 0)
+		{
+			return 0;
+		}
+		int year = Singleton<RoundMgr>.Ins.GetYear();
+		if (Singleton<RoundMgr>.Ins.GetMonth()[0] >= this.loveDate.Item2)
+		{
+			return year - this.loveDate.Item1;
+		}
+		return year - this.loveDate.Item1 - 1;
+	}
+
+	// Token: 0x06000590 RID: 1424 RVA: 0x00034DBC File Offset: 0x00032FBC
+	public bool CanShowVindicateBtn(Role _npc)
+	{
+		if (this.loverId > 0)
+		{
+			return false;
+		}
+		if (_npc.id == 3)
+		{
+			return false;
+		}
+		if (_npc.Relation < 2)
+		{
+			return false;
+		}
+		Role role = Singleton<RoleMgr>.Ins.GetRole();
+		if (_npc.Sex == role.Sex)
+		{
+			if (_npc.id == 104)
+			{
+				if (!Singleton<RoleMgr>.Ins.GetRole().IsUnlock(9033))
+				{
+					return false;
+				}
+			}
+			else if (_npc.id == 101)
+			{
+				if (!Singleton<RoleMgr>.Ins.GetRole().IsUnlock(9036))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (_npc.id != 102)
+				{
+					return false;
+				}
+				if (!Singleton<RoleMgr>.Ins.GetRole().IsUnlock(9035))
+				{
+					return false;
+				}
+			}
+		}
+		return _npc.GetUnlockValue(9030, false) != -1f;
+	}
+
+	// Token: 0x06000591 RID: 1425 RVA: 0x00034E84 File Offset: 0x00033084
+	[return: TupleElementNames(new string[]
+	{
+		"code",
+		"evtId"
+	})]
+	public ValueTuple<VindicateResult, int> CanVinidcate(Role _npc)
+	{
+		if (this.loverId > 0)
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.NeedSingle, 0);
+		}
+		if (Singleton<RoleMgr>.Ins.GetRole().Grade <= 6)
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.NeedOlder, 0);
+		}
+		if (_npc.Relation < 4)
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.NeedCloseFriend, 0);
+		}
+		if (this.GetVindicateSuccessRate(_npc).Item1 < RoleMgr.GetConstValue(3405))
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.LowSuccessRate, 0);
+		}
+		ValueTuple<float, float> vindicateCost = this.GetVindicateCost(_npc);
+		if (!Singleton<RoleMgr>.Ins.HasEnoughMood(vindicateCost.Item1) || !Singleton<RoleMgr>.Ins.HasEnoughTrust(vindicateCost.Item2))
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.NeedMoodOrTrust, 0);
+		}
+		int enableEvtId = Singleton<CommonEvtMgr>.Ins.GetEnableEvtId(520, _npc.id, -1, false);
+		if (enableEvtId <= 0)
+		{
+			return new ValueTuple<VindicateResult, int>(VindicateResult.NoEvt, 0);
+		}
+		return new ValueTuple<VindicateResult, int>(VindicateResult.Success, enableEvtId);
+	}
+
+	// Token: 0x06000592 RID: 1426 RVA: 0x00034F4C File Offset: 0x0003314C
+	[return: TupleElementNames(new string[]
+	{
+		"costMood",
+		"costTrust"
+	})]
+	public ValueTuple<float, float> GetVindicateCost(Role _npc)
+	{
+		ValueTuple<float, float, float, float> vindicateSuccessRate = this.GetVindicateSuccessRate(_npc);
+		float item = 100f * (1f - vindicateSuccessRate.Item1);
+		float item2 = 50f * (1f - vindicateSuccessRate.Item1);
+		return new ValueTuple<float, float>(item, item2);
+	}
+
+	// Token: 0x06000593 RID: 1427 RVA: 0x00034F8C File Offset: 0x0003318C
+	[return: TupleElementNames(new string[]
+	{
+		"total",
+		"focus",
+		"favor",
+		"exp"
+	})]
+	public ValueTuple<float, float, float, float> GetVindicateSuccessRate(Role _npc)
+	{
+		float attr = _npc.GetAttr(9009, false);
+		if (!Cfg.LoveVindicateRateCfgMap.ContainsKey(_npc.id))
+		{
+			return new ValueTuple<float, float, float, float>(Mathf.Clamp(attr, 0f, 1f), 0f, 0f, attr);
+		}
+		Role role = Singleton<RoleMgr>.Ins.GetRole();
+		LoveVindicateRateCfg loveVindicateRateCfg = Cfg.LoveVindicateRateCfgMap[_npc.id];
+		float num = (_npc.FocusId > 0) ? role.GetAttr(_npc.FocusId, false) : 0f;
+		float num2 = loveVindicateRateCfg.attrParms[0] * Mathf.Log10(loveVindicateRateCfg.attrParms[1] * num + loveVindicateRateCfg.attrParms[3]) / Mathf.Log10(loveVindicateRateCfg.attrParms[2] + loveVindicateRateCfg.attrParms[4]);
+		float favor = _npc.GetFavor(false);
+		float num3 = loveVindicateRateCfg.favorParms[0] * Mathf.Log10(loveVindicateRateCfg.favorParms[1] * favor + loveVindicateRateCfg.favorParms[3]) / Mathf.Log10(loveVindicateRateCfg.favorParms[2] + loveVindicateRateCfg.favorParms[4]);
+		return new ValueTuple<float, float, float, float>(Mathf.Clamp(num2 + num3 + attr, 0f, 0.9f), num2, num3, attr);
+	}
+
+	// Token: 0x06000594 RID: 1428 RVA: 0x000350DC File Offset: 0x000332DC
+	public void Vindicate(Role _npc, int _bgId)
+	{
+		ValueTuple<float, float> vindicateCost = this.GetVindicateCost(_npc);
+		if (!Singleton<RoleMgr>.Ins.HasEnoughMood(vindicateCost.Item1) || !Singleton<RoleMgr>.Ins.HasEnoughTrust(vindicateCost.Item2))
+		{
+			return;
+		}
+		string txt = DescCtrl.GetTxt<string>(702, new string[]
+		{
+			RoleMgr.GetRoleName(_npc.id, PersonNameDefine.Full, null)
+		});
+		Role role = Singleton<RoleMgr>.Ins.GetRole();
+		role.UpdateAttr(0, -vindicateCost.Item1, 1f, txt, 2);
+		role.UpdateAttr(3, -vindicateCost.Item2, 1f, txt, 2);
+		_npc.vindicateCnt++;
+		role.vindicateCnt++;
+		int enableEvtId = Singleton<CommonEvtMgr>.Ins.GetEnableEvtId(520, _npc.id, -1, false);
+		Singleton<CommonEvtMgr>.Ins.ShowEvent(enableEvtId, 1f, null, _bgId, true, null);
+		if (Singleton<RoundMgr>.Ins.GetRound() == 61)
+		{
+			this.vindicateInLastRound = true;
+			if (role.vindicateCnt == 1)
+			{
+				Singleton<GlobalMgr>.Ins.CheckAchievement(999, 0);
+			}
+		}
+	}
+
+	// Token: 0x06000595 RID: 1429 RVA: 0x000351E4 File Offset: 0x000333E4
+	public void OnAttrLoveChange(float _v)
+	{
+		foreach (KeyValuePair<int, LoveActionCfg> keyValuePair in Cfg.LoveActionCfgMap)
+		{
+			if (this.loverId > 0 && (float)keyValuePair.Key <= _v)
+			{
+				Singleton<FuncMgr>.Ins.OpenFunc(keyValuePair.Value.funcId, true);
+			}
+			else
+			{
+				Singleton<FuncMgr>.Ins.CloseFunc(keyValuePair.Value.funcId);
+			}
+		}
+	}
+
+	// Token: 0x06000596 RID: 1430 RVA: 0x00035274 File Offset: 0x00033474
+	public bool CanGiveBirthdayGift()
+	{
+		return this.loverId != 0 && Singleton<RoleMgr>.Ins.GetRole(this.loverId).IsBirthday();
+	}
+
+	// Token: 0x06000597 RID: 1431 RVA: 0x00035298 File Offset: 0x00033498
+	[return: TupleElementNames(new string[]
+	{
+		"name",
+		"url",
+		"video",
+		"talks"
+	})]
+	public ValueTuple<string, string, string, List<int>> GetNewLovePaint(int _npcId)
+	{
+		if (this.lovePaints == null)
+		{
+			this.lovePaints = new List<int>();
+		}
+		List<int> list = new List<int>();
+		int num = _npcId * 100 + 1;
+		LoveDrawCfg loveDrawCfg;
+		while (Cfg.LoveDrawCfgMap.TryGetValue(num, out loveDrawCfg))
+		{
+			if (CommonEvtMgr.IsMatchCondition(loveDrawCfg.cond, true) && !this.lovePaints.Contains(num))
+			{
+				list.Add(num);
+			}
+			num++;
+		}
+		if (list.Count > 0)
+		{
+			num = list[UnityEngine.Random.Range(0, list.Count)];
+			this.lovePaints.Add(num);
+		}
+		else if (this.lovePaints.NotEmpty<int>())
+		{
+			num = this.lovePaints[UnityEngine.Random.Range(0, this.lovePaints.Count)];
+		}
+		else
+		{
+			num = Cfg.LoveDrawCfgMap[UnityEngine.Random.Range(0, Cfg.LoveDrawCfgMap.Keys.Count)].id;
+		}
+		loveDrawCfg = Cfg.LoveDrawCfgMap[num];
+		return new ValueTuple<string, string, string, List<int>>(loveDrawCfg.name, loveDrawCfg.img, loveDrawCfg.video, loveDrawCfg.talkId);
+	}
+
+	// Token: 0x06000598 RID: 1432 RVA: 0x000353A4 File Offset: 0x000335A4
+	public int GetNewRibbonId(int _npcId)
+	{
+		int num = _npcId * 100 + 1;
+		if (!Cfg.LoveRibbonCfgMap.ContainsKey(num))
+		{
+			num = 10501;
+		}
+		List<int> list = new List<int>();
+		LoveRibbonCfg loveRibbonCfg;
+		while (Cfg.LoveRibbonCfgMap.TryGetValue(num, out loveRibbonCfg))
+		{
+			if (!this.HasRibbon(num) && CommonEvtMgr.IsMatchCondition(loveRibbonCfg.cond, true))
+			{
+				list.Add(num);
+			}
+			num++;
+		}
+		if (list.Count == 0)
+		{
+			num = _npcId * 100 + 1;
+		}
+		else
+		{
+			num = list[UnityEngine.Random.Range(0, list.Count)];
+		}
+		return num;
+	}
+
+	// Token: 0x06000599 RID: 1433 RVA: 0x0003542C File Offset: 0x0003362C
+	[return: TupleElementNames(new string[]
+	{
+		"txt",
+		"id"
+	})]
+	public ValueTuple<string, int>? GetCustomRibbon(int _idx)
+	{
+		if (this.customRibbons.HasIdx(_idx))
+		{
+			return new ValueTuple<string, int>?(this.customRibbons[_idx]);
+		}
+		return null;
+	}
+
+	// Token: 0x0600059A RID: 1434 RVA: 0x00035464 File Offset: 0x00033664
+	public bool HasRibbon(int _id)
+	{
+		return this.customRibbons != null && this.customRibbons.FindIndex(([TupleElementNames(new string[]
+		{
+			"txt",
+			"id"
+		})] ValueTuple<string, int> _d) => _d.Item2 == _id) >= 0;
+	}
+
+	// Token: 0x0600059B RID: 1435 RVA: 0x000354A5 File Offset: 0x000336A5
+	public void AddRiboon(string _txt, int _ribbonId)
+	{
+		if (this.customRibbons == null)
+		{
+			this.customRibbons = new List<ValueTuple<string, int>>();
+		}
+		this.customRibbons.Add(new ValueTuple<string, int>(_txt, _ribbonId));
+	}
+
+	// Token: 0x0600059C RID: 1436 RVA: 0x000354CC File Offset: 0x000336CC
+	private bool HasBrowserRibbon(int _id)
+	{
+		return this.historyRibbons.Has(_id);
+	}
+
+	// Token: 0x0600059D RID: 1437 RVA: 0x000354DA File Offset: 0x000336DA
+	private void AddHistoryRibbon(int _id)
+	{
+		if (this.historyRibbons == null)
+		{
+			this.historyRibbons = new List<int>();
+		}
+		this.historyRibbons.TryAdd(_id);
+	}
+
+	// Token: 0x0600059E RID: 1438 RVA: 0x000354FC File Offset: 0x000336FC
+	public List<int> BrowserRibbon()
+	{
+		if (this.browserRibbonCntThisRound <= 0)
+		{
+			return null;
+		}
+		this.browserRibbonCntThisRound--;
+		EventMgr.Send(7005);
+		Dictionary<int, float> dictionary = new Dictionary<int, float>();
+		float num = 0f;
+		foreach (KeyValuePair<int, LoveRibbonCfg> keyValuePair in Cfg.LoveRibbonCfgMap)
+		{
+			if (!this.HasBrowserRibbon(keyValuePair.Key) && !keyValuePair.Value.names.IsEmpty<string>() && CommonEvtMgr.IsMatchCondition(keyValuePair.Value.cond, true))
+			{
+				dictionary[keyValuePair.Key] = ((keyValuePair.Value.weight == 0f) ? 1f : keyValuePair.Value.weight);
+				num += dictionary[keyValuePair.Key];
+			}
+		}
+		if (this.customRibbons.NotEmpty<ValueTuple<string, int>>())
+		{
+			for (int i = 0; i < this.customRibbons.Count; i++)
+			{
+				if (!this.HasBrowserRibbon(-i))
+				{
+					dictionary[-i] = 10f;
+				}
+			}
+		}
+		List<int> list = new List<int>();
+		int j = 0;
+		while (j < 3)
+		{
+			if (j < dictionary.Count)
+			{
+				float num2 = UnityEngine.Random.Range(0f, num);
+				using (Dictionary<int, float>.Enumerator enumerator2 = dictionary.GetEnumerator())
+				{
+					while (enumerator2.MoveNext())
+					{
+						KeyValuePair<int, float> keyValuePair2 = enumerator2.Current;
+						if (keyValuePair2.Value >= 0f)
+						{
+							if (num2 <= keyValuePair2.Value)
+							{
+								num -= keyValuePair2.Value;
+								dictionary[keyValuePair2.Key] = -1f;
+								list.Add(keyValuePair2.Key);
+								this.AddHistoryRibbon(keyValuePair2.Key);
+								break;
+							}
+							num2 -= keyValuePair2.Value;
+						}
+					}
+					goto IL_20B;
+				}
+				goto IL_1CE;
+			}
+			goto IL_1CE;
+			IL_20B:
+			j++;
+			continue;
+			IL_1CE:
+			if (!this.historyRibbons.IsEmpty<int>())
+			{
+				int item;
+				do
+				{
+					item = this.historyRibbons[UnityEngine.Random.Range(0, this.historyRibbons.Count)];
+				}
+				while (list.Contains(item));
+				list.Add(item);
+				goto IL_20B;
+			}
+			break;
+		}
+		return list;
+	}
+
+	// Token: 0x0600059F RID: 1439 RVA: 0x00035740 File Offset: 0x00033940
+	public bool CanBrowserRibbon()
+	{
+		return this.browserRibbonCntThisRound > 0;
+	}
+
+	// Token: 0x060005A0 RID: 1440 RVA: 0x0003574C File Offset: 0x0003394C
+	public int CheckGreeting(int _mapId)
+	{
+		if (this.loverId == 0)
+		{
+			return -1;
+		}
+		if (this.hasGreeting)
+		{
+			return -1;
+		}
+		if (Singleton<FuncMgr>.Ins.GetMapData().GetMapByNpc(this.loverId) != _mapId)
+		{
+			return -1;
+		}
+		return Singleton<CommonEvtMgr>.Ins.GetEnableEvtId(21, this.loverId, _mapId, false);
+	}
+
+	// Token: 0x060005A1 RID: 1441 RVA: 0x0003579C File Offset: 0x0003399C
+	public void ShowGreetingEvt(int _evtId, int _bgId, Action _callback)
+	{
+		this.hasGreeting = true;
+		Singleton<CommonEvtMgr>.Ins.ShowEvent(_evtId, 1f, _callback, _bgId, true, null);
+	}
+
+	// Token: 0x060005A2 RID: 1442 RVA: 0x000357C6 File Offset: 0x000339C6
+	public bool CanSocialTopic()
+	{
+		return this.socialTopicCntThisRound == 0;
+	}
+
+	// Token: 0x060005A3 RID: 1443 RVA: 0x000357D4 File Offset: 0x000339D4
+	public bool SocialTopic(int _evtId, int _bgId)
+	{
+		if (this.socialTopicCntThisRound > 0)
+		{
+			return false;
+		}
+		Role role = Singleton<RoleMgr>.Ins.GetRole();
+		if (role.GetAttr(11, false) < 1f)
+		{
+			return false;
+		}
+		role.UpdateAttr(11, -1f, 1f, DescCtrl.GetTxt(10002), 2);
+		this.socialTopicCntThisRound++;
+		Singleton<CommonEvtMgr>.Ins.ShowEvent(_evtId, 1f, null, _bgId, true, null);
+		return true;
+	}
+
+	// Token: 0x060005A4 RID: 1444 RVA: 0x0003584A File Offset: 0x00033A4A
+	public List<int> GetTopics()
+	{
+		if (this.loverId == 0)
+		{
+			return null;
+		}
+		if (this.topicsThisRound.NotEmpty<int>())
+		{
+			return this.topicsThisRound;
+		}
+		this.topicsThisRound = Singleton<CommonEvtMgr>.Ins.GetEnableEvtIds(22, this.loverId, 0, 3);
+		return this.topicsThisRound;
+	}
+
+	// Token: 0x060005A5 RID: 1445 RVA: 0x0003588C File Offset: 0x00033A8C
+	public void GetLoveBreakfast()
+	{
+		LoveBreakfastCfg loveBreakfastCfg = Cfg.LoveBreakfastCfgMap[this.breakfastId];
+		Singleton<BagMgr>.Ins.AddItem(loveBreakfastCfg.item, 1L, null, true);
+		if (this.historyBreakfasts == null)
+		{
+			this.historyBreakfasts = new List<int>();
+		}
+		this.historyBreakfasts.Add(this.breakfastId);
+		this.breakfastId = 0;
+		EventMgr.Send(7005);
+	}
+
+	// Token: 0x060005A6 RID: 1446 RVA: 0x000358F4 File Offset: 0x00033AF4
+	public bool HasLoveBreakfast()
+	{
+		return this.breakfastId > 0;
+	}
+
+	// Token: 0x060005A7 RID: 1447 RVA: 0x00035900 File Offset: 0x00033B00
+	public void CheckLoveBreakfast(bool _force = false)
+	{
+		if (!_force && (UnityEngine.Random.value < 0.5f || !Singleton<FuncMgr>.Ins.IsFuncOpened(607)))
+		{
+			return;
+		}
+		List<ValueTuple<int, float>> list = new List<ValueTuple<int, float>>();
+		float num = 0f;
+		foreach (KeyValuePair<int, LoveBreakfastCfg> keyValuePair in Cfg.LoveBreakfastCfgMap)
+		{
+			if ((keyValuePair.Value.npc == 0 || keyValuePair.Value.npc == this.loverId) && CommonEvtMgr.IsMatchCondition(keyValuePair.Value.cond, true) && !this.historyBreakfasts.Has(keyValuePair.Key))
+			{
+				list.Add(new ValueTuple<int, float>(keyValuePair.Key, keyValuePair.Value.weight));
+				num += keyValuePair.Value.weight;
+			}
+		}
+		if (list.Count == 0)
+		{
+			return;
+		}
+		float num2 = UnityEngine.Random.Range(0f, num);
+		foreach (ValueTuple<int, float> valueTuple in list)
+		{
+			if (num2 < valueTuple.Item2)
+			{
+				this.breakfastId = valueTuple.Item1;
+				EventMgr.Send(7005);
+				break;
+			}
+			num2 -= valueTuple.Item2;
+		}
+	}
+
+	// Token: 0x0400048A RID: 1162
+	public int loverId;
+
+	// Token: 0x0400048B RID: 1163
+	public List<int> historyLoverIds;
+
+	// Token: 0x0400048C RID: 1164
+	[TupleElementNames(new string[]
+	{
+		"year",
+		"month"
+	})]
+	public ValueTuple<int, int> loveDate;
+
+	// Token: 0x0400048D RID: 1165
+	private List<int> lovePaints;
+
+	// Token: 0x0400048E RID: 1166
+	[TupleElementNames(new string[]
+	{
+		"year",
+		"season"
+	})]
+	private ValueTuple<int, int> lastBirthdayGiftDate;
+
+	// Token: 0x0400048F RID: 1167
+	[TupleElementNames(new string[]
+	{
+		"txt",
+		"id"
+	})]
+	private List<ValueTuple<string, int>> customRibbons;
+
+	// Token: 0x04000490 RID: 1168
+	private int browserRibbonCntThisRound;
+
+	// Token: 0x04000491 RID: 1169
+	private List<int> historyRibbons;
+
+	// Token: 0x04000492 RID: 1170
+	private List<int> topicsThisRound;
+
+	// Token: 0x04000493 RID: 1171
+	private int socialTopicCntThisRound;
+
+	// Token: 0x04000494 RID: 1172
+	public bool hasGreeting;
+
+	// Token: 0x04000495 RID: 1173
+	public int breakfastId;
+
+	// Token: 0x04000496 RID: 1174
+	private List<int> historyBreakfasts;
+
+	// Token: 0x04000497 RID: 1175
+	public bool vindicateInLastRound;
+
+	// Token: 0x04000498 RID: 1176
+	public int fix = 1;
+}

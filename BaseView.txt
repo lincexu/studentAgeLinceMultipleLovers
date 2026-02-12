@@ -1,0 +1,974 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
+using DG.Tweening.Core;
+using DG.Tweening.Plugins.Options;
+using UnityEngine;
+
+namespace Sdk
+{
+	// Token: 0x02000243 RID: 579
+	public class BaseView : ITimerUpdate
+	{
+		// Token: 0x17000094 RID: 148
+		// (get) Token: 0x060017E1 RID: 6113 RVA: 0x000C7667 File Offset: 0x000C5867
+		// (set) Token: 0x060017E2 RID: 6114 RVA: 0x000C766F File Offset: 0x000C586F
+		public string prefabPath { get; protected set; }
+
+		// Token: 0x17000095 RID: 149
+		// (get) Token: 0x060017E3 RID: 6115 RVA: 0x000C7678 File Offset: 0x000C5878
+		// (set) Token: 0x060017E4 RID: 6116 RVA: 0x000C7680 File Offset: 0x000C5880
+		public GameObject gameObject { get; private set; }
+
+		// Token: 0x17000096 RID: 150
+		// (get) Token: 0x060017E5 RID: 6117 RVA: 0x000C7689 File Offset: 0x000C5889
+		// (set) Token: 0x060017E6 RID: 6118 RVA: 0x000C7691 File Offset: 0x000C5891
+		public RectTransform transform { get; private set; }
+
+		// Token: 0x17000097 RID: 151
+		// (get) Token: 0x060017E7 RID: 6119 RVA: 0x000C769A File Offset: 0x000C589A
+		// (set) Token: 0x060017E8 RID: 6120 RVA: 0x000C76A2 File Offset: 0x000C58A2
+		public RectTransform animeTransform { get; protected set; }
+
+		// Token: 0x17000098 RID: 152
+		// (get) Token: 0x060017E9 RID: 6121 RVA: 0x000C76AB File Offset: 0x000C58AB
+		public string Name
+		{
+			get
+			{
+				if (this.name == null)
+				{
+					this.name = base.GetType().FullName;
+				}
+				return this.name;
+			}
+		}
+
+		// Token: 0x060017EB RID: 6123 RVA: 0x000C76F0 File Offset: 0x000C58F0
+		public void Show(Action<BaseView> _compCallback = null, Action<BaseView> _initCallback = null, Action _openCallback = null)
+		{
+			if (_openCallback != null)
+			{
+				this.openCallback = _openCallback;
+			}
+			if (this.viewState == ViewState.Init)
+			{
+				if (_compCallback != null)
+				{
+					this.loadCompCallback = _compCallback;
+				}
+				if (_initCallback != null)
+				{
+					this.initCompCallback = _initCallback;
+				}
+				if (this.prefabPath == null || this.prefabPath == "")
+				{
+					Utils.Error(new object[]
+					{
+						"Can't find view path "
+					});
+					return;
+				}
+				this.viewState = ViewState.Loading;
+				if (this.preloadUrls != null && this.preloadUrls.Count > 0)
+				{
+					int finishCnt = 0;
+					using (List<string>.Enumerator enumerator = this.preloadUrls.GetEnumerator())
+					{
+						Action<UnityEngine.Object> <>9__0;
+						while (enumerator.MoveNext())
+						{
+							string path = enumerator.Current;
+							Action<UnityEngine.Object> compCallback;
+							if ((compCallback = <>9__0) == null)
+							{
+								compCallback = (<>9__0 = delegate(UnityEngine.Object _o)
+								{
+									int finishCnt = finishCnt;
+									finishCnt++;
+									if (finishCnt >= this.preloadUrls.Count)
+									{
+										ResMgr.LoadInstanceAsync(this.prefabPath, new Action<UnityEngine.Object>(this.LoadComp), new Action<float>(this.OnLoading));
+									}
+								});
+							}
+							ResMgr.LoadAsync<UnityEngine.Object>(path, compCallback, null, false);
+						}
+						return;
+					}
+				}
+				ResMgr.LoadInstanceAsync(this.prefabPath, new Action<UnityEngine.Object>(this.LoadComp), new Action<float>(this.OnLoading));
+				return;
+			}
+			else
+			{
+				if (this.viewState == ViewState.Closed)
+				{
+					this.Open();
+					return;
+				}
+				if (this.viewState == ViewState.Opened)
+				{
+					this.Refresh();
+					Action action = this.openCallback;
+					if (action != null)
+					{
+						action();
+					}
+					this.openCallback = null;
+				}
+			}
+		}
+
+		// Token: 0x060017EC RID: 6124 RVA: 0x000C7848 File Offset: 0x000C5A48
+		private void LoadComp(UnityEngine.Object o)
+		{
+			this.viewState = ViewState.Loaded;
+			this.gameObject = (o as GameObject);
+			GameObject gameObject = this.gameObject;
+			gameObject.name = gameObject.name + " << " + this.Name;
+			this.transform = (this.gameObject.transform as RectTransform);
+			this.animeTransform = this.transform;
+			if (this.parent != null)
+			{
+				UIMgr.ExpandViewXformSize(this.transform, this.parent, this.isAlwaysBottom ? 0 : -1);
+			}
+			Action<BaseView> action = this.loadCompCallback;
+			if (action != null)
+			{
+				action(this);
+			}
+			this.InitUI();
+			Action<BaseView> action2 = this.initCompCallback;
+			if (action2 != null)
+			{
+				action2(this);
+			}
+			this.Open();
+		}
+
+		// Token: 0x060017ED RID: 6125 RVA: 0x000C7908 File Offset: 0x000C5B08
+		private void Open()
+		{
+			int num = (int)this.viewState;
+			this.viewState = ViewState.Opened;
+			if (num != 3)
+			{
+				this.isListenAdd = true;
+				this.UpdateEventListeners();
+				this.UpdateRedpointRegisters();
+				if (this.enableUpdate)
+				{
+					Singleton<TimerMgr>.Ins.AddITimerUpdate(this, false);
+				}
+				if (this.enableFixedUpdate)
+				{
+					Singleton<TimerMgr>.Ins.AddITimerUpdate(this, true);
+				}
+			}
+			if (this.childViews != null)
+			{
+				foreach (KeyValuePair<string, BaseView> keyValuePair in this.childViews)
+				{
+					if (keyValuePair.Value.parent == null)
+					{
+						keyValuePair.Value.parent = this.transform;
+					}
+					keyValuePair.Value.hasBecomeChildView = true;
+					if (!this.hasBecomeChildView)
+					{
+						keyValuePair.Value.Show(null, null, null);
+					}
+				}
+			}
+			this.gameObject.SetActive(true);
+			this.OnOpen();
+			this.PlayViewAnime(true, null);
+			Action action = this.openCallback;
+			if (action != null)
+			{
+				action();
+			}
+			this.openCallback = null;
+			if (this.openAudio.Item1.NotEmpty())
+			{
+				AudioMgr.Ins.PlaySoundOneShot(0, this.openAudio.Item1, this.openAudio.Item2, 1f);
+			}
+		}
+
+		// Token: 0x060017EE RID: 6126 RVA: 0x000C7A5C File Offset: 0x000C5C5C
+		public void OpenView<T>(params object[] parms)
+		{
+			UIMgr.OpenView<T>(this.layerType, null, parms);
+		}
+
+		// Token: 0x060017EF RID: 6127 RVA: 0x000C7A6B File Offset: 0x000C5C6B
+		public virtual void CloseView()
+		{
+			UIMgr.CloseView(this, true, false);
+		}
+
+		// Token: 0x060017F0 RID: 6128 RVA: 0x000C7A78 File Offset: 0x000C5C78
+		public void Destroy()
+		{
+			if (this.viewState == ViewState.Opened)
+			{
+				this.Hide();
+			}
+			this.viewState = ViewState.Init;
+			if (this.childViews != null)
+			{
+				foreach (KeyValuePair<string, BaseView> keyValuePair in this.childViews)
+				{
+					keyValuePair.Value.hasBecomeChildView = false;
+					keyValuePair.Value.Destroy();
+				}
+				this.childViews.Clear();
+			}
+			this.OnDestroy();
+			if (this.itemGroups != null)
+			{
+				foreach (UIItemGroup uiitemGroup in this.itemGroups)
+				{
+					uiitemGroup.Destroy();
+				}
+				this.itemGroups.Clear();
+			}
+			if (this.scrolls != null)
+			{
+				foreach (UIScroll uiscroll in this.scrolls)
+				{
+					uiscroll.Destroy();
+				}
+				this.scrolls.Clear();
+			}
+			if (this.pools != null)
+			{
+				foreach (UICellPool uicellPool in this.pools)
+				{
+					uicellPool.RecycleAll(null);
+					uicellPool.Destroy();
+				}
+				this.pools.Clear();
+			}
+			ResMgr.Recycle(this.gameObject);
+			this.gameObject = null;
+		}
+
+		// Token: 0x060017F1 RID: 6129 RVA: 0x000C7C1C File Offset: 0x000C5E1C
+		public void Hide()
+		{
+			if (this.closeAudio.Item1.NotEmpty())
+			{
+				AudioMgr.Ins.PlaySoundOneShot(0, this.closeAudio.Item1, this.closeAudio.Item2, 1f);
+			}
+			if (this.viewState != ViewState.Closed)
+			{
+				EventMgr.Send<RectTransform>(4003, this.transform);
+				this.viewState = ViewState.Closed;
+				if (this.enableUpdate)
+				{
+					Singleton<TimerMgr>.Ins.RemoveITimerUpdate(this, false);
+				}
+				if (this.enableFixedUpdate)
+				{
+					Singleton<TimerMgr>.Ins.RemoveITimerUpdate(this, true);
+				}
+				this.RemoveAllListener();
+				if (this.childViews != null)
+				{
+					foreach (KeyValuePair<string, BaseView> keyValuePair in this.childViews)
+					{
+						keyValuePair.Value.hasBecomeChildView = false;
+						keyValuePair.Value.Hide();
+					}
+				}
+			}
+			this.OnClose();
+			GameObject gameObject = this.gameObject;
+			if (gameObject == null)
+			{
+				return;
+			}
+			gameObject.SetActive(false);
+		}
+
+		// Token: 0x060017F2 RID: 6130 RVA: 0x000C7D2C File Offset: 0x000C5F2C
+		private void UpdateEventListeners()
+		{
+			this.OnUpdateEventListeners(this.isListenAdd);
+		}
+
+		// Token: 0x060017F3 RID: 6131 RVA: 0x000C7D3A File Offset: 0x000C5F3A
+		public void RemoveAllListener()
+		{
+			this.isListenAdd = false;
+			this.UpdateEventListeners();
+			this.UpdateRedpointRegisters();
+		}
+
+		// Token: 0x060017F4 RID: 6132 RVA: 0x000C7D4F File Offset: 0x000C5F4F
+		private void UpdateRedpointRegisters()
+		{
+			this.OnUpdateRedpointRegisters(this.isListenAdd);
+		}
+
+		// Token: 0x060017F5 RID: 6133 RVA: 0x000C7D5D File Offset: 0x000C5F5D
+		private void SetViewReady(bool _isReady)
+		{
+			this.isViewReady = _isReady;
+			if (_isReady && this.viewType != ViewType.Hover)
+			{
+				EventMgr.Send<BaseView>(4001, this);
+			}
+		}
+
+		// Token: 0x060017F6 RID: 6134 RVA: 0x000C7D7D File Offset: 0x000C5F7D
+		public void OpenAnimeComp()
+		{
+			this.SetViewReady(true);
+			this.OnOpenAnimeComp();
+		}
+
+		// Token: 0x060017F7 RID: 6135 RVA: 0x000C7D8C File Offset: 0x000C5F8C
+		public void BeforeCloseAnime()
+		{
+			this.SetViewReady(false);
+			this.OnBeforeCloseAnime();
+		}
+
+		// Token: 0x060017F8 RID: 6136 RVA: 0x000C7D9B File Offset: 0x000C5F9B
+		public virtual void OnLoading(float proc)
+		{
+		}
+
+		// Token: 0x060017F9 RID: 6137 RVA: 0x000C7D9D File Offset: 0x000C5F9D
+		public virtual void InitUI()
+		{
+		}
+
+		// Token: 0x060017FA RID: 6138 RVA: 0x000C7D9F File Offset: 0x000C5F9F
+		public virtual void OnOpen()
+		{
+		}
+
+		// Token: 0x060017FB RID: 6139 RVA: 0x000C7DA1 File Offset: 0x000C5FA1
+		public virtual void OnClose()
+		{
+		}
+
+		// Token: 0x060017FC RID: 6140 RVA: 0x000C7DA3 File Offset: 0x000C5FA3
+		public virtual void OnUpdateEventListeners(bool _enable)
+		{
+		}
+
+		// Token: 0x060017FD RID: 6141 RVA: 0x000C7DA5 File Offset: 0x000C5FA5
+		public virtual void OnDestroy()
+		{
+		}
+
+		// Token: 0x060017FE RID: 6142 RVA: 0x000C7DA7 File Offset: 0x000C5FA7
+		public virtual void OnUpdateRedpointRegisters(bool _enable)
+		{
+		}
+
+		// Token: 0x060017FF RID: 6143 RVA: 0x000C7DA9 File Offset: 0x000C5FA9
+		public virtual void OnOpenAnimeComp()
+		{
+		}
+
+		// Token: 0x06001800 RID: 6144 RVA: 0x000C7DAB File Offset: 0x000C5FAB
+		public virtual void OnBeforeCloseAnime()
+		{
+		}
+
+		// Token: 0x06001801 RID: 6145 RVA: 0x000C7DAD File Offset: 0x000C5FAD
+		public virtual void Update(float _deltaTime)
+		{
+		}
+
+		// Token: 0x06001802 RID: 6146 RVA: 0x000C7DAF File Offset: 0x000C5FAF
+		public virtual void FixedUpdate(float _deltaTime)
+		{
+		}
+
+		// Token: 0x06001803 RID: 6147 RVA: 0x000C7DB1 File Offset: 0x000C5FB1
+		public virtual void Refresh()
+		{
+		}
+
+		// Token: 0x06001804 RID: 6148 RVA: 0x000C7DB4 File Offset: 0x000C5FB4
+		public void UpdateListener(int evtId, EventCallback callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add(evtId, callback);
+		}
+
+		// Token: 0x06001805 RID: 6149 RVA: 0x000C7E14 File Offset: 0x000C6014
+		public void UpdateListener<T>(int evtId, EventCallback<T> callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove<T>(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add<T>(evtId, callback);
+		}
+
+		// Token: 0x06001806 RID: 6150 RVA: 0x000C7E74 File Offset: 0x000C6074
+		public void UpdateListener<T, X>(int evtId, EventCallback<T, X> callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove<T, X>(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add<T, X>(evtId, callback);
+		}
+
+		// Token: 0x06001807 RID: 6151 RVA: 0x000C7ED4 File Offset: 0x000C60D4
+		public void UpdateListener<T, X, Y>(int evtId, EventCallback<T, X, Y> callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove<T, X, Y>(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add<T, X, Y>(evtId, callback);
+		}
+
+		// Token: 0x06001808 RID: 6152 RVA: 0x000C7F34 File Offset: 0x000C6134
+		public void UpdateListener<T, X, Y, Z>(int evtId, EventCallback<T, X, Y, Z> callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove<T, X, Y, Z>(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add<T, X, Y, Z>(evtId, callback);
+		}
+
+		// Token: 0x06001809 RID: 6153 RVA: 0x000C7F94 File Offset: 0x000C6194
+		public void UpdateListener<T, X, Y, Z, W>(int evtId, EventCallback<T, X, Y, Z, W> callback)
+		{
+			if (!this.isListenAdd)
+			{
+				this.evtDict.Remove(evtId);
+				EventMgr.Remove<T, X, Y, Z, W>(evtId, callback);
+				return;
+			}
+			if (this.evtDict.ContainsKey(evtId))
+			{
+				Utils.Warn(new object[]
+				{
+					"事件不能重复绑定"
+				});
+				return;
+			}
+			this.evtDict.Add(evtId, callback);
+			EventMgr.Add<T, X, Y, Z, W>(evtId, callback);
+		}
+
+		// Token: 0x0600180A RID: 6154 RVA: 0x000C7FF4 File Offset: 0x000C61F4
+		public Transform Find(string path, Transform transform = null)
+		{
+			if (transform == null)
+			{
+				transform = this.gameObject.transform;
+			}
+			return transform.Find(path);
+		}
+
+		// Token: 0x0600180B RID: 6155 RVA: 0x000C8013 File Offset: 0x000C6213
+		public T FindComponent<T>(string path, Transform transform = null) where T : Component
+		{
+			if (transform == null)
+			{
+				transform = this.gameObject.transform;
+			}
+			return this.Find(path, transform).gameObject.GetOrAddComponent<T>();
+		}
+
+		// Token: 0x0600180C RID: 6156 RVA: 0x000C8040 File Offset: 0x000C6240
+		public void InitItemGroup(UIItemGroup _itemGroup, CellCreate<UICell> _createCell, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null, CellRegisterCallback<UICell> _onRegister = null, bool _useChildAsParent = false)
+		{
+			if (this.itemGroups == null)
+			{
+				this.itemGroups = new List<UIItemGroup>();
+			}
+			if (this.itemGroups.Contains(_itemGroup))
+			{
+				return;
+			}
+			this.itemGroups.Add(_itemGroup);
+			_itemGroup.Init(_createCell, _onRender, _onCreate, _onRecycle, _onDestroy, _onRegister, _useChildAsParent);
+		}
+
+		// Token: 0x0600180D RID: 6157 RVA: 0x000C8090 File Offset: 0x000C6290
+		public void InitItemGroup(UIItemGroup _itemGroup, UICell _cell, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null, CellRegisterCallback<UICell> _onRegister = null, bool _useChildAsParent = false)
+		{
+			if (this.itemGroups == null)
+			{
+				this.itemGroups = new List<UIItemGroup>();
+			}
+			if (this.itemGroups.Contains(_itemGroup))
+			{
+				return;
+			}
+			this.itemGroups.Add(_itemGroup);
+			_itemGroup.Init(_cell, _onRender, _onCreate, _onRecycle, _onDestroy, _onRegister, _useChildAsParent);
+		}
+
+		// Token: 0x0600180E RID: 6158 RVA: 0x000C80E0 File Offset: 0x000C62E0
+		public void InitItemGroup(UIItemGroup _itemGroup, List<UICell> _cells, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null, CellRegisterCallback<UICell> _onRegister = null, bool _useChildAsParent = false)
+		{
+			if (this.itemGroups == null)
+			{
+				this.itemGroups = new List<UIItemGroup>();
+			}
+			if (this.itemGroups.Contains(_itemGroup))
+			{
+				return;
+			}
+			this.itemGroups.Add(_itemGroup);
+			_itemGroup.Init(_cells, _onRender, _onCreate, _onRecycle, _onDestroy, _onRegister, _useChildAsParent);
+		}
+
+		// Token: 0x0600180F RID: 6159 RVA: 0x000C8130 File Offset: 0x000C6330
+		public void InitToggleGroup(UIToggleGroup _itemGroup, UICell _cell, Action<bool, UICell> _onToggle, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null, CellRegisterCallback<UICell> _onRegister = null, bool _useChildAsParent = false)
+		{
+			if (this.itemGroups == null)
+			{
+				this.itemGroups = new List<UIItemGroup>();
+			}
+			if (this.itemGroups.Contains(_itemGroup))
+			{
+				return;
+			}
+			this.itemGroups.Add(_itemGroup);
+			_itemGroup.Init(_cell, _onToggle, _onRender, _onCreate, _onRecycle, _onDestroy, _onRegister, _useChildAsParent);
+		}
+
+		// Token: 0x06001810 RID: 6160 RVA: 0x000C817F File Offset: 0x000C637F
+		public void InitScroll(UIScroll _scroll, UICell _cell, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null)
+		{
+			if (this.scrolls == null)
+			{
+				this.scrolls = new List<UIScroll>();
+			}
+			if (this.scrolls.Contains(_scroll))
+			{
+				return;
+			}
+			this.scrolls.Add(_scroll);
+			_scroll.Init(_cell, _onRender, _onCreate, _onRecycle, _onDestroy);
+		}
+
+		// Token: 0x06001811 RID: 6161 RVA: 0x000C81BD File Offset: 0x000C63BD
+		public void InitScroll(UIScroll _scroll, List<UICell> _cells, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null, CellCallback<UICell> _onDestroy = null)
+		{
+			if (this.scrolls == null)
+			{
+				this.scrolls = new List<UIScroll>();
+			}
+			if (this.scrolls.Contains(_scroll))
+			{
+				return;
+			}
+			this.scrolls.Add(_scroll);
+			_scroll.Init(_cells, _onRender, _onCreate, _onRecycle, _onDestroy, null);
+		}
+
+		// Token: 0x06001812 RID: 6162 RVA: 0x000C81FC File Offset: 0x000C63FC
+		public void AddChildView(BaseView _view)
+		{
+			if (this.childViews == null)
+			{
+				this.childViews = new Dictionary<string, BaseView>();
+			}
+			if (this.childViews.ContainsKey(_view.Name))
+			{
+				return;
+			}
+			this.childViews.Add(_view.Name, _view);
+			_view.BecomeChildView(this);
+		}
+
+		// Token: 0x06001813 RID: 6163 RVA: 0x000C824C File Offset: 0x000C644C
+		public BaseView GetChildView(string _viewName)
+		{
+			if (this.childViews == null)
+			{
+				return null;
+			}
+			BaseView result;
+			this.childViews.TryGetValue(_viewName, out result);
+			return result;
+		}
+
+		// Token: 0x06001814 RID: 6164 RVA: 0x000C8273 File Offset: 0x000C6473
+		public virtual void BecomeChildView(BaseView _parent)
+		{
+			this.hasBecomeChildView = true;
+		}
+
+		// Token: 0x06001815 RID: 6165 RVA: 0x000C827C File Offset: 0x000C647C
+		public UICellPool InitPool(UICell _cell, CellCallback<UICell> _onRender, CellCallback<UICell> _onCreate = null, CellCallback<UICell> _onRecycle = null)
+		{
+			UICellPool uicellPool = new UICellPool(_cell);
+			uicellPool.SetOnRender(_onRender);
+			uicellPool.SetOnCreate(_onCreate);
+			uicellPool.SetOnRecycle(_onRecycle);
+			if (this.pools == null)
+			{
+				this.pools = new List<UICellPool>();
+			}
+			this.pools.Add(uicellPool);
+			return uicellPool;
+		}
+
+		// Token: 0x06001816 RID: 6166 RVA: 0x000C82C6 File Offset: 0x000C64C6
+		public bool HotKeyInput(int _hotKey)
+		{
+			return this.isViewReady && this.OnHotKeyInput(_hotKey);
+		}
+
+		// Token: 0x06001817 RID: 6167 RVA: 0x000C82D9 File Offset: 0x000C64D9
+		public virtual bool OnHotKeyInput(int _hotKey)
+		{
+			return false;
+		}
+
+		// Token: 0x06001818 RID: 6168 RVA: 0x000C82DC File Offset: 0x000C64DC
+		public virtual List<int> GetHotKeys()
+		{
+			return null;
+		}
+
+		// Token: 0x06001819 RID: 6169 RVA: 0x000C82DF File Offset: 0x000C64DF
+		public bool HotKeyPressing(int _hotKey)
+		{
+			return this.isViewReady && this.OnHotKeyPressing(_hotKey);
+		}
+
+		// Token: 0x0600181A RID: 6170 RVA: 0x000C82F2 File Offset: 0x000C64F2
+		public virtual bool OnHotKeyPressing(int _hotKey)
+		{
+			return false;
+		}
+
+		// Token: 0x0600181B RID: 6171 RVA: 0x000C82F5 File Offset: 0x000C64F5
+		public bool HotKeyStartPress(int _hotKey)
+		{
+			return this.isViewReady && this.OnHotKeyStartPress(_hotKey);
+		}
+
+		// Token: 0x0600181C RID: 6172 RVA: 0x000C8308 File Offset: 0x000C6508
+		public virtual bool OnHotKeyStartPress(int _hotKey)
+		{
+			return false;
+		}
+
+		// Token: 0x0600181D RID: 6173 RVA: 0x000C830C File Offset: 0x000C650C
+		public async void PlayViewAnime(bool _open, TweenCallback _callback = null)
+		{
+			switch (_open ? this.openAnimeType : this.closeAnimeType)
+			{
+			case AnimeType.Scale:
+			{
+				CanvasGroup canvasGroup2 = this.animeTransform.gameObject.GetOrAddComponent<CanvasGroup>();
+				this.animeTransform.DOKill(false);
+				if (_open)
+				{
+					canvasGroup2.alpha = 0f;
+					this.animeTransform.localScale = Vector3.one * 0.5f;
+					this.animeTransform.DOScale(1f, 0.2f).OnUpdate(delegate
+					{
+						canvasGroup2.alpha = (this.animeTransform.localScale.x - 0.5f) / 0.5f;
+					}).OnComplete(_callback).OnComplete(new TweenCallback(this.OpenAnimeComp));
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					this.animeTransform.DOScale(0.5f, 0.1f).OnUpdate(delegate
+					{
+						canvasGroup2.alpha = (this.animeTransform.localScale.x - 0.5f) / 0.5f;
+					}).OnComplete(_callback);
+				}
+				break;
+			}
+			case AnimeType.Fade:
+			{
+				CanvasGroup orAddComponent = this.animeTransform.gameObject.GetOrAddComponent<CanvasGroup>();
+				orAddComponent.DOKill(false);
+				if (_open)
+				{
+					orAddComponent.alpha = 0f;
+					orAddComponent.DOFade(1f, 0.2f).OnComplete(_callback).OnComplete(new TweenCallback(this.OpenAnimeComp)).SetEase(Ease.Linear);
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					orAddComponent.DOFade(0f, 0.2f).OnComplete(_callback).SetEase(Ease.Linear);
+				}
+				break;
+			}
+			case AnimeType.RightSide:
+			{
+				float width = this.animeTransform.rect.width;
+				if (_open)
+				{
+					this.animeTransform.SetPosX(width);
+					this.animeTransform.DOAnchorPosX(0f, 0.25f, false).OnComplete(_callback).OnComplete(new TweenCallback(this.OpenAnimeComp));
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					this.animeTransform.DOAnchorPosX(width, 0.25f, false).OnComplete(_callback);
+				}
+				break;
+			}
+			case AnimeType.LeftSide:
+			{
+				float width2 = this.animeTransform.rect.width;
+				if (_open)
+				{
+					this.animeTransform.SetPosX(-width2);
+					this.animeTransform.DOAnchorPosX(0f, 0.25f, false).OnComplete(_callback).OnComplete(new TweenCallback(this.OpenAnimeComp));
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					this.animeTransform.DOAnchorPosX(-width2, 0.25f, false).OnComplete(_callback);
+				}
+				break;
+			}
+			case AnimeType.Vertical:
+			{
+				float num = this.animeTransform.rect.height * 0.5f + this.transform.rect.height * 0.5f;
+				if (_open)
+				{
+					this.animeTransform.SetPosY(num);
+					this.animeTransform.DOAnchorPosY(0f, 0.25f, false).OnComplete(_callback).OnComplete(new TweenCallback(this.OpenAnimeComp));
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					this.animeTransform.DOAnchorPosY(-num, 0.25f, false).OnComplete(_callback);
+				}
+				break;
+			}
+			case AnimeType.Imediate:
+				if (_open)
+				{
+					if (_callback != null)
+					{
+						_callback();
+					}
+					this.OpenAnimeComp();
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					if (_callback != null)
+					{
+						_callback();
+					}
+				}
+				break;
+			default:
+				if (_open)
+				{
+					await UniTask.NextFrame();
+					if (_callback != null)
+					{
+						_callback();
+					}
+					this.OpenAnimeComp();
+				}
+				else
+				{
+					this.BeforeCloseAnime();
+					if (_callback != null)
+					{
+						_callback();
+					}
+				}
+				break;
+			}
+		}
+
+		// Token: 0x0600181E RID: 6174 RVA: 0x000C8355 File Offset: 0x000C6555
+		public T CreateView<T>() where T : BaseView, new()
+		{
+			T result;
+			if ((result = (this.GetChildView(typeof(T).FullName) as T)) == null)
+			{
+				result = Activator.CreateInstance<T>();
+			}
+			return result;
+		}
+
+		// Token: 0x04000E58 RID: 3672
+		public List<string> preloadUrls;
+
+		// Token: 0x04000E5B RID: 3675
+		public RectTransform parent;
+
+		// Token: 0x04000E5C RID: 3676
+		public UIButton closeBtn;
+
+		// Token: 0x04000E5D RID: 3677
+		public UILayerType layerType = UILayerType.Main;
+
+		// Token: 0x04000E5E RID: 3678
+		public ViewState viewState;
+
+		// Token: 0x04000E5F RID: 3679
+		public ViewType viewType;
+
+		// Token: 0x04000E60 RID: 3680
+		public bool isViewReady;
+
+		// Token: 0x04000E61 RID: 3681
+		public bool isShowMask;
+
+		// Token: 0x04000E62 RID: 3682
+		public bool enableCloseByMask = true;
+
+		// Token: 0x04000E63 RID: 3683
+		public bool isDontDestroy;
+
+		// Token: 0x04000E64 RID: 3684
+		public bool isShowLoading;
+
+		// Token: 0x04000E65 RID: 3685
+		public bool enableCloseByRightClick;
+
+		// Token: 0x04000E66 RID: 3686
+		public bool enableUpdate;
+
+		// Token: 0x04000E67 RID: 3687
+		public bool enableFixedUpdate;
+
+		// Token: 0x04000E68 RID: 3688
+		public bool hasBecomeChildView;
+
+		// Token: 0x04000E69 RID: 3689
+		public bool enableSave;
+
+		// Token: 0x04000E6A RID: 3690
+		public object[] parms;
+
+		// Token: 0x04000E6B RID: 3691
+		private Dictionary<int, Delegate> evtDict = new Dictionary<int, Delegate>();
+
+		// Token: 0x04000E6C RID: 3692
+		private bool isListenAdd;
+
+		// Token: 0x04000E6D RID: 3693
+		private List<UIItemGroup> itemGroups;
+
+		// Token: 0x04000E6E RID: 3694
+		private List<UICellPool> pools;
+
+		// Token: 0x04000E6F RID: 3695
+		private List<UIScroll> scrolls;
+
+		// Token: 0x04000E70 RID: 3696
+		public bool isAlwaysBottom;
+
+		// Token: 0x04000E71 RID: 3697
+		public Dictionary<string, BaseView> childViews;
+
+		// Token: 0x04000E72 RID: 3698
+		public Action<BaseView> initCompCallback;
+
+		// Token: 0x04000E73 RID: 3699
+		public Action<BaseView> loadCompCallback;
+
+		// Token: 0x04000E74 RID: 3700
+		public Action openCallback;
+
+		// Token: 0x04000E75 RID: 3701
+		[TupleElementNames(new string[]
+		{
+			"url",
+			"volume"
+		})]
+		public ValueTuple<string, float> openAudio;
+
+		// Token: 0x04000E76 RID: 3702
+		[TupleElementNames(new string[]
+		{
+			"url",
+			"volume"
+		})]
+		public ValueTuple<string, float> closeAudio;
+
+		// Token: 0x04000E77 RID: 3703
+		public AnimeType openAnimeType;
+
+		// Token: 0x04000E78 RID: 3704
+		public AnimeType closeAnimeType;
+
+		// Token: 0x04000E7A RID: 3706
+		private string name;
+	}
+}

@@ -1,0 +1,17 @@
+using System;
+
+namespace Config
+{
+	// Token: 0x02000709 RID: 1801
+	public class LoveActionCfg
+	{
+		// Token: 0x040045D6 RID: 17878
+		public int funcId;
+
+		// Token: 0x040045D7 RID: 17879
+		public int id;
+
+		// Token: 0x040045D8 RID: 17880
+		public string name;
+	}
+}

@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>LinceMultipleLovers</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>Lince</Authors>
+    <Description>多恋人Mod - 允许同时拥有多个恋人</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- BepInEx Core -->
+    <Reference Include="BepInEx">
+      <HintPath>E:\steam\steamapps\common\StudentAge\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>E:\steam\steamapps\common\StudentAge\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>E:\steam\steamapps\common\StudentAge\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.Utils">
+      <HintPath>E:\steam\steamapps\common\StudentAge\BepInEx\core\MonoMod.Utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    
+    <!-- Game Assemblies -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    
+    <!-- System -->
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if not exist &quot;E:\steam\steamapps\common\StudentAge\BepInEx\plugins\LinceMultipleLovers&quot; mkdir &quot;E:\steam\steamapps\common\StudentAge\BepInEx\plugins\LinceMultipleLovers&quot;&#xD;&#xA;copy &quot;$(TargetPath)&quot; &quot;E:\steam\steamapps\common\StudentAge\BepInEx\plugins\LinceMultipleLovers\&quot; /Y" />
+  </Target>
+
+</Project>

@@ -1,0 +1,81 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Sdk;
+
+namespace Condition
+{
+	// Token: 0x020005EE RID: 1518
+	public class ConditionerLove : Conditioner
+	{
+		// Token: 0x06002AC0 RID: 10944 RVA: 0x0015E840 File Offset: 0x0015CA40
+		public ConditionerLove()
+		{
+		}
+
+		// Token: 0x06002AC1 RID: 10945 RVA: 0x0015E848 File Offset: 0x0015CA48
+		public ConditionerLove(Conditioner _conditioner, List<double> _condition) : base(_conditioner, _condition)
+		{
+			if (this.subType == 2)
+			{
+				this.childType = (int)_condition[2];
+			}
+		}
+
+		// Token: 0x06002AC2 RID: 10946 RVA: 0x0015E86C File Offset: 0x0015CA6C
+		[return: TupleElementNames(new string[]
+		{
+			"cur",
+			"total"
+		})]
+		public override ValueTuple<float, float> OnGetProgress()
+		{
+			if (this.subType == 1 && this.childType == 0)
+			{
+				ValueTuple<int, int> valueTuple = (Singleton<RoleMgr>.Ins.GetLoveData().loverId > 0) ? new ValueTuple<int, int>(1, 1) : new ValueTuple<int, int>(0, 1);
+				return new ValueTuple<float, float>((float)valueTuple.Item1, (float)valueTuple.Item2);
+			}
+			return new ValueTuple<float, float>(0f, 0f);
+		}
+
+		// Token: 0x06002AC3 RID: 10947 RVA: 0x0015E8D0 File Offset: 0x0015CAD0
+		public override bool OnIsMatch()
+		{
+			if (this.subType == 1)
+			{
+				if (this.childType == 0)
+				{
+					return Singleton<RoleMgr>.Ins.GetLoveData().loverId > 0;
+				}
+				return Singleton<RoleMgr>.Ins.GetLoveData().loverId == this.childType;
+			}
+			else
+			{
+				if (this.subType == 3)
+				{
+					LoveData loveData = Singleton<RoleMgr>.Ins.GetLoveData();
+					return loveData.historyLoverIds.IsEmpty<int>() && loveData.loverId <= 0;
+				}
+				return false;
+			}
+		}
+
+		// Token: 0x06002AC4 RID: 10948 RVA: 0x0015E94C File Offset: 0x0015CB4C
+		public override string OnToString(int _type = 0)
+		{
+			string text = null;
+			if (this.subType == 1)
+			{
+				text = DescCtrl.GetTxt(2105);
+			}
+			if (text != null)
+			{
+				return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
+			}
+			return null;
+		}
+
+		// Token: 0x04002F3B RID: 12091
+		public int childType;
+	}
+}

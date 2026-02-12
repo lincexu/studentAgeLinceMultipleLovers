@@ -1,0 +1,725 @@
+using System;
+using System.Collections.Generic;
+using Config;
+using GenUI.Common;
+using GenUI.Main;
+using Sdk;
+using TheEntity;
+using UnityEngine;
+using UnityEngine.Events;
+using View.Common;
+using View.TheAction;
+
+namespace View.Main
+{
+	// Token: 0x0200016C RID: 364
+	public class MapRoleView : MapRoleUI, ICurrency, IGuide
+	{
+		// Token: 0x06000F67 RID: 3943 RVA: 0x0007F9E4 File Offset: 0x0007DBE4
+		public MapRoleView()
+		{
+			this.isShowMask = false;
+			this.layerType = UILayerType.Normal;
+			this.enableCloseByRightClick = true;
+			this.enableCloseByMask = true;
+			this.openAnimeType = AnimeType.Fade;
+			this.preloadUrls = new List<string>
+			{
+				CommonOptionItem.url2,
+				TalkRoleItem.url
+			};
+			this.isShowLoading = true;
+			this.enableUpdate = true;
+			this.enableSave = true;
+		}
+
+		// Token: 0x06000F68 RID: 3944 RVA: 0x0007FAA0 File Offset: 0x0007DCA0
+		public override void InitUI()
+		{
+			base.InitUI();
+			base.InitItemGroup(this.itemgroup_topic, this.Cell_RoleTopicItem, new CellCallback<UICell>(this.OnTopicRender), new CellCallback<UICell>(this.OnTopicCreate), null, null, null, false);
+			base.InitItemGroup(this.itemgroup_option, new List<UICell>
+			{
+				this.Cell_RoleOptionItem,
+				this.Cell_RoleOptionTalkItem,
+				this.Cell_RoleOptionGiftItem,
+				this.Cell_RoleOptionVindicateItem,
+				this.Cell_RoleOptionByeItem
+			}, new CellCallback<UICell>(this.OnCellRender), new CellCallback<UICell>(this.OnCellCreate), null, null, null, false);
+			this.cell = new Cell_NewTalkRoleItemUI(this.root_NewTalkRoleItem.gameObject);
+			TalkRoleItem.OnCellCreate(this.cell);
+			this.layerOrder = UIMgr.GetLayerSortingOrder(this.layerType);
+			this.btn_profile.AddClick(new UnityAction(this.OnClickProfile));
+			UIMgr.SetGameObjectSortingOrder(this.group_name.gameObject, this.layerOrder + 1);
+			this.btn_close_topic.AddClick(new UnityAction(this.OnClickCloseTopic));
+		}
+
+		// Token: 0x06000F69 RID: 3945 RVA: 0x0007FBC3 File Offset: 0x0007DDC3
+		private void OnClickCloseTopic()
+		{
+			this.RefreshData();
+		}
+
+		// Token: 0x06000F6A RID: 3946 RVA: 0x0007FBCC File Offset: 0x0007DDCC
+		public override void OnUpdateEventListeners(bool _enable)
+		{
+			base.OnUpdateEventListeners(_enable);
+			base.UpdateListener(401, new EventCallback(this.RefreshData));
+			base.UpdateListener(1602, new EventCallback(this.RefreshData));
+			base.UpdateListener(1603, new EventCallback(this.OnSocialEnd));
+			base.UpdateListener(1301, new EventCallback(this.Refresh));
+			base.UpdateListener(7006, new EventCallback(this.OnNpcLeave));
+			base.UpdateListener<BaseView>(4001, new EventCallback<BaseView>(this.OnOtherViewReady));
+			base.UpdateListener<BaseView>(4002, new EventCallback<BaseView>(this.OnOtherViewReady));
+			base.UpdateListener(1601, new EventCallback(this.RefreshData));
+			base.UpdateListener(1604, new EventCallback(this.OnVindicateFail));
+			base.UpdateListener(209, new EventCallback(this.RefreshData));
+			base.UpdateListener(403, new EventCallback(this.RefreshData));
+			base.UpdateListener(3201, new EventCallback(this.RefreshData));
+		}
+
+		// Token: 0x06000F6B RID: 3947 RVA: 0x0007FCF5 File Offset: 0x0007DEF5
+		private void OnVindicateFail()
+		{
+			this.itemgroup_option.Refresh();
+		}
+
+		// Token: 0x06000F6C RID: 3948 RVA: 0x0007FD04 File Offset: 0x0007DF04
+		private void OnOtherViewReady(BaseView _view)
+		{
+			BaseView topView = UIMgr.GetTopView(UILayerType.Normal, Array.Empty<ViewType>());
+			Debug.Log("topView:" + topView.Name);
+			if (topView == this)
+			{
+				this.root_NewTalkRoleItem.gameObject.SetActive(true);
+				this.group_name.gameObject.SetActive(true);
+				return;
+			}
+			this.root_NewTalkRoleItem.gameObject.SetActive(false);
+			this.group_name.gameObject.SetActive(false);
+		}
+
+		// Token: 0x06000F6D RID: 3949 RVA: 0x0007FD7B File Offset: 0x0007DF7B
+		private void OnNpcLeave()
+		{
+			if (!Singleton<FuncMgr>.Ins.GetMapData().HasNpc(this.npc.id, this.mapId))
+			{
+				this.CloseView2();
+			}
+		}
+
+		// Token: 0x06000F6E RID: 3950 RVA: 0x0007FDA8 File Offset: 0x0007DFA8
+		public override void OnOpen()
+		{
+			base.OnOpen();
+			this.mainRole = Singleton<RoleMgr>.Ins.GetRole();
+			EventMgr.Send<bool>(7001, false);
+			this.ShowCloseBtn(true, null);
+			this.Refresh();
+			this.CheckGuide(0, null);
+			AudioMgrEx.PauseNpcSound();
+			AudioMgrEx.PlayNpcSoundOneShot(RoleMgr.GetNpcRandomAudioId(this.npcId, NpcVoiceTypeDefine.Greeting));
+		}
+
+		// Token: 0x06000F6F RID: 3951 RVA: 0x0007FE04 File Offset: 0x0007E004
+		public override void Refresh()
+		{
+			base.Refresh();
+			this.npcId = (int)this.parms[0];
+			this.bgId = (int)this.parms[1];
+			this.mapId = (int)this.parms[2];
+			this.npc = Singleton<RoleMgr>.Ins.GetRole(this.npcId);
+			Singleton<FuncMgr>.Ins.RecordMap(this.mapId, this.bgId, this.npcId);
+			this.useSchoolCloth = false;
+			if (this.parms.Length > 3 && (bool)this.parms[3])
+			{
+				if (Cfg.BgCfgMap.ContainsKey(this.bgId))
+				{
+					this.icon_bg.SetTextureUrl(Cfg.BgCfgMap[this.bgId].GetBgUrl(-1), true);
+				}
+				else
+				{
+					this.icon_bg.image.color = new Color(0f, 0f, 0f, 0.8f);
+				}
+				this.icon_bg.gameObject.SetActive(true);
+			}
+			if (Cfg.BgCfgMap.ContainsKey(this.bgId))
+			{
+				this.useSchoolCloth = (Cfg.BgCfgMap[this.bgId].cloth.GetByIdx(0, 0) == 1);
+			}
+			this.cell.data = this.npcId;
+			TalkRoleItem.SetData(this.cell, this.layerOrder, 0, 1f, this.useSchoolCloth ? 1 : 0, true, -1, 0, 0, -1, GenderDefine.Unknown, L2DLoadType.Scene, null);
+			this.txt_name.text = this.npc.Name;
+			this.txt_favor.text = HtmlTxtUtil.FormatInt(this.npc.Favor);
+			this.RefreshData();
+		}
+
+		// Token: 0x06000F70 RID: 3952 RVA: 0x0007FFC4 File Offset: 0x0007E1C4
+		private void RefreshData()
+		{
+			if (!Singleton<FuncMgr>.Ins.GetMapData().HasNpc(this.npcId, this.mapId))
+			{
+				this.CloseView2();
+				return;
+			}
+			this.itemgroup_option.gameObject.SetActive(true);
+			this.itemgroup_topic.gameObject.SetActive(false);
+			List<int> list = new List<int>();
+			if (this.npc.taskEvtId != 0)
+			{
+				list.Add(304);
+			}
+			else
+			{
+				list.Add(301);
+			}
+			if (this.npc.id == Singleton<RoleMgr>.Ins.GetLoveData().loverId)
+			{
+				list.Add(308);
+			}
+			this.npcCfg = Cfg.PersonCfgMap[this.npc.id];
+			this.txt_name.text = this.npc.Name;
+			if (this.npc.id == 203 && this.npc.IsUnlock(9031))
+			{
+				list.Add(309);
+			}
+			if (Cfg.PersonGrowCfgMap.ContainsKey(this.npc.id) && Cfg.MinigameCfgMap.ContainsKey(Cfg.PersonGrowCfgMap[this.npc.id].minigame) && !Singleton<FuncMgr>.Ins.GetMiniGameData().IsFinish(this.npc.id))
+			{
+				list.Add(305);
+			}
+			if (Singleton<RoleMgr>.Ins.GetLoveData().CanShowVindicateBtn(this.npc))
+			{
+				list.Add(306);
+			}
+			list.Add(302);
+			if (Singleton<FuncMgr>.Ins.IsFuncOpened(112) && !Singleton<RoleMgr>.Ins.GetPersonalityFuncData(true).IsInSocialClub(this.npc.id))
+			{
+				list.Add(307);
+			}
+			if (Singleton<FuncMgr>.Ins.IsFuncOpened(604) && this.npc.id == Singleton<RoleMgr>.Ins.GetLoveData().loverId)
+			{
+				list.Add(604);
+			}
+			if (this.npc.CanTeach())
+			{
+				list.Add(310);
+			}
+			if (this.npc.Relation == 5 && this.npc.Favor >= 400f)
+			{
+				list.Add(311);
+			}
+			list.Add(-1);
+			this.itemgroup_option.SetUICellDatas<int>(list, delegate(int _id)
+			{
+				if (_id != -1)
+				{
+					switch (_id)
+					{
+					case 302:
+						return 2;
+					case 304:
+						return 1;
+					case 306:
+						return 3;
+					}
+					return 0;
+				}
+				return 4;
+			});
+			RelationCfg relationCfg = Cfg.RelationCfgMap[this.npc.GetRelationForUI()];
+			float favor = this.npc.GetFavor(false);
+			int num = (favor > 200f) ? ((int)(favor - 200f)) : ((int)favor);
+			int num2 = num % 5;
+			num = num - num2 + num2 % 5 / 5 * 5;
+			this.icon_favor.image.fillAmount = ((num <= 0) ? 0f : ((float)num / 100f));
+			this.icon_favor.SetAtlasUrl(relationCfg.iconFavor2, true);
+			if (num > 90)
+			{
+				this.group_name.SetSizeY(200f);
+				this.img_favor_bg2.gameObject.SetActive(true);
+				this.icon_favor2.SetAtlasUrl(relationCfg.iconFavor2, true);
+				this.icon_favor2.image.fillAmount = ((num <= 100) ? 0f : ((float)(num - 100) / 100f));
+			}
+			else
+			{
+				this.group_name.SetSizeY(160f);
+				this.img_favor_bg2.gameObject.SetActive(false);
+			}
+			this.icon_relation.SetAtlasUrl(relationCfg.iconRelation, true);
+		}
+
+		// Token: 0x06000F71 RID: 3953 RVA: 0x00080354 File Offset: 0x0007E554
+		public void OnCellRender(UICell _cell)
+		{
+			int num = (int)_cell.data;
+			FuncCfg funcCfg;
+			Cfg.FuncCfgMap.TryGetValue(num, out funcCfg);
+			Cell_RoleOptionItemUI cell_RoleOptionItemUI = _cell as Cell_RoleOptionItemUI;
+			if (cell_RoleOptionItemUI != null)
+			{
+				if (num == 305)
+				{
+					float cost = Singleton<FuncMgr>.Ins.GetMiniGameData().GetCost(this.npc.id);
+					MinigameCfg minigameCfg = Cfg.MinigameCfgMap[Cfg.PersonGrowCfgMap[this.npc.id].minigame];
+					cell_RoleOptionItemUI.txt_name.text = minigameCfg.name;
+					cell_RoleOptionItemUI.txtex_cost.text = HtmlTxtUtil.ToSpriteTxtWithDigital(3, cost);
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(true);
+					int gameNeedRelation = Singleton<FuncMgr>.Ins.GetMiniGameData().GetGameNeedRelation(this.npc.id);
+					cell_RoleOptionItemUI.btn_click.interactable = (!Singleton<RoundMgr>.Ins.IsHoliday() && this.npc.Relation >= gameNeedRelation && Singleton<RoleMgr>.Ins.HasEnoughCost(3, cost, false));
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(false);
+					return;
+				}
+				if (num == 301)
+				{
+					float socialCost = Singleton<RoleMgr>.Ins.GetActionData().GetSocialCost(this.npc.id);
+					bool interactable = this.mainRole.GetAttr(11, false) >= socialCost;
+					cell_RoleOptionItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionItemUI.txtex_cost.text = HtmlTxtUtil.ToSpriteTxtWithDigital(11, socialCost);
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(true);
+					cell_RoleOptionItemUI.btn_click.interactable = interactable;
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(false);
+					RedpointHelper.ActiveTmp(cell_RoleOptionItemUI.btn_click.transform, this.npc.socialEvtId > 0 || this.npc.loveSocialEvtId > 0, 10, -10, "common6/img_redpoint_small", RedpointPos.RightTop, 50f);
+					return;
+				}
+				if (num == 307)
+				{
+					float inviteToSocialClubCost = Singleton<RoleMgr>.Ins.GetPersonalityFuncData(true).GetInviteToSocialClubCost();
+					if (inviteToSocialClubCost != 0f)
+					{
+						cell_RoleOptionItemUI.txtex_cost.text = HtmlTxtUtil.ToSpriteTxtWithDigital(3, inviteToSocialClubCost);
+						cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(true);
+						cell_RoleOptionItemUI.icon_item.gameObject.SetActive(false);
+					}
+					else
+					{
+						cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(false);
+						cell_RoleOptionItemUI.icon_item.gameObject.SetActive(true);
+					}
+					cell_RoleOptionItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionItemUI.btn_click.interactable = (this.npc.Relation >= 2 && Singleton<RoleMgr>.Ins.HasEnoughTrust(inviteToSocialClubCost));
+					return;
+				}
+				if (num == 308)
+				{
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(true);
+					cell_RoleOptionItemUI.icon_item.SetAtlasUrl(Cfg.PersonAttrCfgMap[520].Icon(null, 0), true);
+					cell_RoleOptionItemUI.txt_name.text = DescCtrl.GetTxt(801);
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(false);
+					cell_RoleOptionItemUI.btn_click.interactable = Singleton<RoleMgr>.Ins.GetLoveData().CanSocialTopic();
+					return;
+				}
+				if (num == 309)
+				{
+					Dictionary<int, float> actionCost = Singleton<RoleMgr>.Ins.GetActionData().GetActionCost(funcCfg.parm[0]);
+					cell_RoleOptionItemUI.txtex_cost.text = HtmlTxtUtil.ToSpriteTxtWithDigital(actionCost, " ", 1f);
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(true);
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(false);
+					cell_RoleOptionItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionItemUI.btn_click.interactable = Singleton<RoleMgr>.Ins.GetActionData().CanAction(funcCfg.parm[0]);
+					return;
+				}
+				if (num == 604)
+				{
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(true);
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(false);
+					cell_RoleOptionItemUI.icon_item.SetAtlasUrl("action/img_star", true);
+					cell_RoleOptionItemUI.txt_name.text = DescCtrl.GetTxt(882);
+					cell_RoleOptionItemUI.btn_click.interactable = true;
+					return;
+				}
+				if (num == 310)
+				{
+					cell_RoleOptionItemUI.icon_item.gameObject.SetActive(true);
+					ValueTuple<int, float> maxAttr = this.npc.GetMaxAttr(true);
+					cell_RoleOptionItemUI.icon_item.SetAtlasUrl(Cfg.PersonAttrCfgMap[maxAttr.Item1].Icon(null, 0), true);
+					cell_RoleOptionItemUI.txt_name.text = Cfg.FuncCfgMap[310].name;
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(false);
+					cell_RoleOptionItemUI.btn_click.interactable = this.npc.Teachable();
+					return;
+				}
+				if (num == 311)
+				{
+					RelationCfg relationCfg = Cfg.RelationCfgMap[6];
+					cell_RoleOptionItemUI.icon_bg.gameObject.SetActive(true);
+					cell_RoleOptionItemUI.icon_item.SetAtlasUrl(relationCfg.iconRelation, true);
+					cell_RoleOptionItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionItemUI.txtex_cost.gameObject.SetActive(false);
+					cell_RoleOptionItemUI.btn_click.interactable = true;
+					return;
+				}
+			}
+			else
+			{
+				Cell_RoleOptionTalkItemUI cell_RoleOptionTalkItemUI = _cell as Cell_RoleOptionTalkItemUI;
+				if (cell_RoleOptionTalkItemUI != null)
+				{
+					cell_RoleOptionTalkItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionTalkItemUI.btn_click.interactable = true;
+					RedpointHelper.ActiveTmp(cell_RoleOptionTalkItemUI.btn_click.transform, this.npc.taskEvtId > 0 && !Singleton<RoleMgr>.Ins.GetRelationData(true).HasNpcEvtRedpoint(this.npc.taskEvtId), 10, -10, "common6/img_redpoint_small", RedpointPos.RightTop, 50f);
+					return;
+				}
+				Cell_RoleOptionGiftItemUI cell_RoleOptionGiftItemUI = _cell as Cell_RoleOptionGiftItemUI;
+				if (cell_RoleOptionGiftItemUI != null)
+				{
+					LoveData loveData = Singleton<RoleMgr>.Ins.GetLoveData();
+					if (loveData.loverId == this.npcId && loveData.CanGiveBirthdayGift())
+					{
+						cell_RoleOptionGiftItemUI.txt_name.text = DescCtrl.GetTxt(1140);
+					}
+					else
+					{
+						cell_RoleOptionGiftItemUI.txt_name.text = funcCfg.name;
+					}
+					ValueTuple<bool, bool> valueTuple = Singleton<BagMgr>.Ins.IfNpcHasGiftEvt(this.npcId);
+					cell_RoleOptionGiftItemUI.btn_click.interactable = (valueTuple.Item1 || Singleton<BagMgr>.Ins.GetGiftCntThisRound(this.npc.id) == 0);
+					RedpointHelper.ActiveTmp(cell_RoleOptionGiftItemUI.btn_click.transform, valueTuple.Item2, 10, -10, "common6/img_redpoint_small", RedpointPos.RightTop, 50f);
+					return;
+				}
+				Cell_RoleOptionVindicateItemUI cell_RoleOptionVindicateItemUI = _cell as Cell_RoleOptionVindicateItemUI;
+				if (cell_RoleOptionVindicateItemUI != null)
+				{
+					cell_RoleOptionVindicateItemUI.txt_name.text = funcCfg.name;
+					cell_RoleOptionVindicateItemUI.btn_click.interactable = (Singleton<RoleMgr>.Ins.GetLoveData().CanVinidcate(this.npc).Item1 == VindicateResult.Success);
+					return;
+				}
+				Cell_RoleOptionByeItemUI cell_RoleOptionByeItemUI = _cell as Cell_RoleOptionByeItemUI;
+				if (cell_RoleOptionByeItemUI != null)
+				{
+					cell_RoleOptionByeItemUI.txt_name.text = DescCtrl.GetTxt(715);
+					cell_RoleOptionByeItemUI.btn_click.interactable = true;
+				}
+			}
+		}
+
+		// Token: 0x06000F72 RID: 3954 RVA: 0x00080A28 File Offset: 0x0007EC28
+		public void OnCellCreate(UICell _cell)
+		{
+			Cell_RoleOptionItemUI optionItem = _cell as Cell_RoleOptionItemUI;
+			if (optionItem != null)
+			{
+				Action <>9__2;
+				optionItem.btn_click.AddClick(delegate
+				{
+					int num = (int)_cell.data;
+					if (num == 301)
+					{
+						if (Singleton<RoleMgr>.Ins.GetActionData().Social(this.npcId, this.bgId, this.mapId, false))
+						{
+							this.CloseView2();
+							return;
+						}
+					}
+					else if (num == 305)
+					{
+						this.root_NewTalkRoleItem.gameObject.SetActive(false);
+						this.group_name.gameObject.SetActive(false);
+						if (Singleton<FuncMgr>.Ins.GetMiniGameData().SocialGame(this.npc.id, this.bgId))
+						{
+							this.CloseView2();
+							return;
+						}
+					}
+					else if (num == 307)
+					{
+						this.root_NewTalkRoleItem.gameObject.SetActive(false);
+						this.group_name.gameObject.SetActive(false);
+						if (Singleton<RoleMgr>.Ins.GetPersonalityFuncData(true).InviteToSocialClub(this.npc.id, this.bgId, this.mapId))
+						{
+							this.RefreshData();
+							return;
+						}
+					}
+					else
+					{
+						if (num == 308)
+						{
+							this.itemgroup_option.gameObject.SetActive(false);
+							this.itemgroup_topic.gameObject.SetActive(true);
+							this.itemgroup_topic.SetDatas<int>(Singleton<RoleMgr>.Ins.GetLoveData().GetTopics(), null);
+							EventMgr.Send(4004);
+							return;
+						}
+						if (num == 309)
+						{
+							FuncCfg funcCfg = Cfg.FuncCfgMap[num];
+							Singleton<RoleMgr>.Ins.GetActionData().Action(funcCfg.parm[0], true, this.bgId, false, this.mapId);
+							return;
+						}
+						if (num == 604)
+						{
+							Action action;
+							if ((action = <>9__2) == null)
+							{
+								action = (<>9__2 = delegate()
+								{
+									HintHelper.ShowTalk(this.npc.id, DescCtrl.GetTxt(883), null, 1, -1, this.bgId);
+								});
+							}
+							Action action2 = action;
+							UIMgr.OpenView<KzoneProfileView>(UILayerType.None, null, new object[]
+							{
+								this.npc.id,
+								action2
+							});
+							return;
+						}
+						if (num == 310)
+						{
+							this.npc.Teach(0, this.bgId);
+							return;
+						}
+						if (num == 311)
+						{
+							Singleton<RoleMgr>.Ins.GetRelationData(true).ChangeRelation(this.npc.id, 6, null, false);
+						}
+					}
+				});
+				optionItem.btn_click.AddDescription(delegate(int _type)
+				{
+					int num = (int)_cell.data;
+					if (num == 301)
+					{
+						return ActionDescHelper.Social(_type, this.mainRole, this.npcId);
+					}
+					if (num == 305)
+					{
+						return ActionDescHelper.SocialGame(_type, this.npc, Cfg.PersonGrowCfgMap[this.npc.id].minigame);
+					}
+					if (num == 307)
+					{
+						return ActionDescHelper.SocialClubInvite(_type, this.npc);
+					}
+					if (num == 308)
+					{
+						if (optionItem.btn_click.interactable)
+						{
+							return ActionDescHelper.SocialTopic(_type);
+						}
+						return MainDescHelper.Tips(_type, 802, Array.Empty<string>());
+					}
+					else
+					{
+						if (num == 309)
+						{
+							FuncCfg funcCfg = Cfg.FuncCfgMap[num];
+							return ActionDescHelper.Action(_type, funcCfg.parm[0], -1, -1);
+						}
+						if (num == 310)
+						{
+							return ActionDescHelper.SocialTeach(_type, this.npc);
+						}
+						if (num == 311)
+						{
+							return ActionDescHelper.SocialBeZhijiao(_type, optionItem.btn_click.interactable);
+						}
+						return null;
+					}
+				});
+				return;
+			}
+			Cell_RoleOptionTalkItemUI cell_RoleOptionTalkItemUI = _cell as Cell_RoleOptionTalkItemUI;
+			if (cell_RoleOptionTalkItemUI != null)
+			{
+				cell_RoleOptionTalkItemUI.btn_click.AddClick(delegate
+				{
+					this.CloseView2();
+					Singleton<CommonEvtMgr>.Ins.ShowEvent(this.npc.taskEvtId, 1f, null, this.bgId, true, null);
+				});
+				return;
+			}
+			Cell_RoleOptionGiftItemUI giftItem = _cell as Cell_RoleOptionGiftItemUI;
+			if (giftItem != null)
+			{
+				giftItem.btn_click.AddClick(delegate
+				{
+					LoveData loveData = Singleton<RoleMgr>.Ins.GetLoveData();
+					bool flag = loveData.loverId == this.npcId && loveData.CanGiveBirthdayGift();
+					if (flag)
+					{
+						int enableEvtId = Singleton<CommonEvtMgr>.Ins.GetEnableEvtId(523, this.npcId, -1, false);
+						if (enableEvtId > 0)
+						{
+							Singleton<BagMgr>.Ins.AddGiftCntThisRound(this.npcId);
+							Singleton<CommonEvtMgr>.Ins.ShowEvent(enableEvtId, 1f, null, this.bgId, true, null);
+							return;
+						}
+					}
+					UIMgr.OpenView<ItemSelectView>(UILayerType.None, null, new object[]
+					{
+						this.npc.id,
+						this.bgId,
+						flag
+					});
+				});
+				giftItem.btn_click.AddDescription((int _type) => ActionDescHelper.Gift(_type, giftItem.btn_click.interactable));
+				return;
+			}
+			Cell_RoleOptionVindicateItemUI cell_RoleOptionVindicateItemUI = _cell as Cell_RoleOptionVindicateItemUI;
+			if (cell_RoleOptionVindicateItemUI != null)
+			{
+				cell_RoleOptionVindicateItemUI.btn_click.AddClick(delegate
+				{
+					Singleton<RoleMgr>.Ins.GetLoveData().Vindicate(this.npc, this.bgId);
+				});
+				cell_RoleOptionVindicateItemUI.btn_click.AddDescription((int _type) => ActionDescHelper.Vindicate(_type, this.mainRole, this.npc));
+				return;
+			}
+			Cell_RoleOptionByeItemUI cell_RoleOptionByeItemUI = _cell as Cell_RoleOptionByeItemUI;
+			if (cell_RoleOptionByeItemUI != null)
+			{
+				cell_RoleOptionByeItemUI.btn_click.AddClick(new UnityAction(this.CloseView));
+			}
+		}
+
+		// Token: 0x06000F73 RID: 3955 RVA: 0x00080B84 File Offset: 0x0007ED84
+		private void OnTopicRender(UICell _cell)
+		{
+			Cell_RoleTopicItemUI cell_RoleTopicItemUI = _cell as Cell_RoleTopicItemUI;
+			int key = (int)cell_RoleTopicItemUI.data;
+			EvtCfg evtCfg = Cfg.EvtCfgMap[key];
+			cell_RoleTopicItemUI.txtex_content.text = evtCfg.title;
+			cell_RoleTopicItemUI.btn_click.interactable = (this.mainRole.GetAttr(11, false) >= 1f);
+		}
+
+		// Token: 0x06000F74 RID: 3956 RVA: 0x00080BE4 File Offset: 0x0007EDE4
+		private void OnTopicCreate(UICell _cell)
+		{
+			Cell_RoleTopicItemUI cell = _cell as Cell_RoleTopicItemUI;
+			cell.btn_click.AddClick(delegate
+			{
+				int evtId = (int)cell.data;
+				Singleton<RoleMgr>.Ins.GetLoveData().SocialTopic(evtId, this.bgId);
+			});
+			cell.btn_click.AddDescription(delegate(int _type)
+			{
+				if (!cell.btn_click.interactable)
+				{
+					return MainDescHelper.Tips(_type, 56, new string[]
+					{
+						Cfg.PersonAttrCfgMap[11].Name(0, 0)
+					});
+				}
+				return null;
+			});
+		}
+
+		// Token: 0x06000F75 RID: 3957 RVA: 0x00080C42 File Offset: 0x0007EE42
+		private void OnSocialEnd()
+		{
+			this.root_NewTalkRoleItem.gameObject.SetActive(true);
+			this.group_name.gameObject.SetActive(true);
+			this.RefreshData();
+		}
+
+		// Token: 0x06000F76 RID: 3958 RVA: 0x00080C6C File Offset: 0x0007EE6C
+		public bool CheckGuide(int _state = 0, Action _callback = null)
+		{
+			return Singleton<FuncMgr>.Ins.GetGuideData().CheckGuide(base.Name, _state, _callback);
+		}
+
+		// Token: 0x06000F77 RID: 3959 RVA: 0x00080C85 File Offset: 0x0007EE85
+		public CurrencyInfoData GetInfo()
+		{
+			return this.currencyInfo;
+		}
+
+		// Token: 0x06000F78 RID: 3960 RVA: 0x00080C8D File Offset: 0x0007EE8D
+		private void OnClickProfile()
+		{
+			UIMgr.OpenView<DetailView>(UILayerType.None, null, new object[]
+			{
+				503,
+				0,
+				this.npc.id
+			});
+		}
+
+		// Token: 0x06000F79 RID: 3961 RVA: 0x00080CC5 File Offset: 0x0007EEC5
+		public override bool OnHotKeyInput(int _keyAction)
+		{
+			return this.hotkeys != null && this.hotkeys.Contains(_keyAction) && Singleton<FuncMgr>.Ins.HotKeyInput(_keyAction, this.enableSave);
+		}
+
+		// Token: 0x06000F7A RID: 3962 RVA: 0x00080CF0 File Offset: 0x0007EEF0
+		public override List<int> GetHotKeys()
+		{
+			return this.hotkeys;
+		}
+
+		// Token: 0x06000F7B RID: 3963 RVA: 0x00080CF8 File Offset: 0x0007EEF8
+		private void CloseView2()
+		{
+			base.CloseView();
+			this.OnExit();
+		}
+
+		// Token: 0x06000F7C RID: 3964 RVA: 0x00080D06 File Offset: 0x0007EF06
+		public override void CloseView()
+		{
+			base.CloseView();
+			this.OnExit();
+			AudioMgrEx.PauseNpcSound();
+			AudioMgrEx.PlayNpcSoundOneShot(RoleMgr.GetNpcRandomAudioId(this.npcId, NpcVoiceTypeDefine.Bye));
+		}
+
+		// Token: 0x06000F7D RID: 3965 RVA: 0x00080D2C File Offset: 0x0007EF2C
+		private void OnExit()
+		{
+			Cell_NewTalkRoleItemUI cell_NewTalkRoleItemUI = this.cell;
+			if (cell_NewTalkRoleItemUI != null)
+			{
+				cell_NewTalkRoleItemUI.Destroy();
+			}
+			if (this.npc != null)
+			{
+				Singleton<RoleMgr>.Ins.GetRelationData(true).AddNpcRedpoint(this.npc.socialEvtId);
+				Singleton<RoleMgr>.Ins.GetRelationData(true).AddNpcRedpoint(this.npc.loveSocialEvtId);
+				Singleton<RoleMgr>.Ins.GetRelationData(true).AddNpcRedpoint(this.npc.taskEvtId);
+			}
+			EventMgr.Send<bool>(7001, true);
+		}
+
+		// Token: 0x04000979 RID: 2425
+		private int npcId;
+
+		// Token: 0x0400097A RID: 2426
+		private Role npc;
+
+		// Token: 0x0400097B RID: 2427
+		private Role mainRole;
+
+		// Token: 0x0400097C RID: 2428
+		private int bgId;
+
+		// Token: 0x0400097D RID: 2429
+		private int mapId;
+
+		// Token: 0x0400097E RID: 2430
+		private PersonCfg npcCfg;
+
+		// Token: 0x0400097F RID: 2431
+		private Cell_NewTalkRoleItemUI cell;
+
+		// Token: 0x04000980 RID: 2432
+		private int layerOrder = 200;
+
+		// Token: 0x04000981 RID: 2433
+		private CurrencyInfoData currencyInfo = new CurrencyInfoData
+		{
+			isShowRole = true,
+			isShowBase = true
+		};
+
+		// Token: 0x04000982 RID: 2434
+		private List<int> hotkeys = new List<int>
+		{
+			107,
+			108,
+			105,
+			119
+		};
+
+		// Token: 0x04000983 RID: 2435
+		public bool useSchoolCloth;
+	}
+}
