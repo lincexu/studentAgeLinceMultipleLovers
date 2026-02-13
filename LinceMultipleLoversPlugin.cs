@@ -285,6 +285,28 @@ namespace LinceMultipleLovers
                 // 应用QuickSocialViewPatch
                 Log.LogInfo("正在应用QuickSocialView补丁...");
                 var quickSocialViewType = typeof(View.TheAction.QuickSocialView);
+                
+                // OnOpen
+                var onOpenMethod = quickSocialViewType.GetMethod("OnOpen");
+                if (onOpenMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(onOpenMethod,
+                            postfix: new HarmonyMethod(typeof(Patches.QuickSocialViewPatch), nameof(Patches.QuickSocialViewPatch.OnOpen_Postfix)));
+                        Log.LogInfo("成功应用QuickSocialView.OnOpen补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用QuickSocialView.OnOpen补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到QuickSocialView.OnOpen方法");
+                }
+                
+                // OnRenderSocial
                 var onRenderSocialMethod = quickSocialViewType.GetMethod("OnRenderSocial", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (onRenderSocialMethod != null)
                 {
