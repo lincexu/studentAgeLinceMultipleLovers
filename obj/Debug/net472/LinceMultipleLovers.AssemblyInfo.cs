@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("多恋人Mod - 允许同时拥有多个恋人")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+fb92be116d3fa2651f7151db214ab907ae2b61c9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+d8d3559432371074f8391c6bdc2e606af6a5b1c5")]
 [assembly: System.Reflection.AssemblyProductAttribute("LinceMultipleLovers")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LinceMultipleLovers")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.1.0.0")]

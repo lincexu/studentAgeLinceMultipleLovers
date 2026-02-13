@@ -155,25 +155,43 @@ namespace LinceMultipleLovers
                 }
                 Log.LogInfo($"找到RelationData类型: {relationDataType.FullName}");
 
-                // 应用RelationDataPatch - 社交容量计算
+                // 应用RelationDataPatch
                 Log.LogInfo("正在应用RelationData补丁...");
-                var refreshSocialCapacityMethod = relationDataType.GetMethod("RefreshSocialCapacity", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (refreshSocialCapacityMethod != null)
+
+                // IsMatchRelationType(Role, int)
+                var isMatchMethod1 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(TheEntity.Role), typeof(int) });
+                if (isMatchMethod1 != null)
                 {
-                    try
-                    {
-                        Harmony.Patch(refreshSocialCapacityMethod,
-                            prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.RefreshSocialCapacity_Prefix)));
-                        Log.LogInfo("成功应用RefreshSocialCapacity补丁");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.LogError($"应用RefreshSocialCapacity补丁失败: {ex}");
-                    }
+                    Harmony.Patch(isMatchMethod1,
+                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationType_Prefix)));
+                    Log.LogInfo("成功应用IsMatchRelationType(Role, int)补丁");
                 }
-                else
+
+                // IsMatchRelationType(int, int)
+                var isMatchMethod2 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(int), typeof(int) });
+                if (isMatchMethod2 != null)
                 {
-                    Log.LogError("找不到RefreshSocialCapacity方法");
+                    Harmony.Patch(isMatchMethod2,
+                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationTypeById_Prefix)));
+                    Log.LogInfo("成功应用IsMatchRelationType(int, int)补丁");
+                }
+
+                // ChangeRelation
+                var changeRelationMethod = relationDataType.GetMethod("ChangeRelation");
+                if (changeRelationMethod != null)
+                {
+                    Harmony.Patch(changeRelationMethod,
+                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.ChangeRelation_Postfix)));
+                    Log.LogInfo("成功应用ChangeRelation补丁");
+                }
+
+                // GetRelationship
+                var getRelationshipMethod = relationDataType.GetMethod("GetRelationship");
+                if (getRelationshipMethod != null)
+                {
+                    Harmony.Patch(getRelationshipMethod,
+                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.GetRelationship_Postfix)));
+                    Log.LogInfo("成功应用GetRelationship补丁");
                 }
 
                 // 应用MapRoleViewPatch
@@ -360,6 +378,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.1";
+        public const string PLUGIN_VERSION = "0.1.0";
     }
 }
