@@ -1,5 +1,0 @@
-E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net6.0\LinceMultipleLovers.csproj.AssemblyReference.cache
-E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net6.0\LinceMultipleLovers.GeneratedMSBuildEditorConfig.editorconfig
-E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net6.0\LinceMultipleLovers.AssemblyInfoInputs.cache
-E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net6.0\LinceMultipleLovers.AssemblyInfo.cs
-E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net6.0\LinceMultipleLovers.csproj.CoreCompileInputs.cache

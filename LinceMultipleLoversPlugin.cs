@@ -360,6 +360,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.0";
+        public const string PLUGIN_VERSION = "0.1.1";
     }
 }
