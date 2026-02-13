@@ -7,3 +7,4 @@ E:\steam\steamapps\common\StudentAge\linceMultipleLovers\bin\Debug\net472\LinceM
 E:\steam\steamapps\common\StudentAge\linceMultipleLovers\bin\Debug\net472\LinceMultipleLovers.pdb
 E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net472\LinceMultipleLovers.dll
 E:\steam\steamapps\common\StudentAge\linceMultipleLovers\obj\Debug\net472\LinceMultipleLovers.pdb
+E:\steam\steamapps\common\StudentAge\lincemultiplelovers\obj\Debug\net472\LinceMultipleLovers.sourcelink.json

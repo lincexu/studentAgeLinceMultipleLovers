@@ -1,7 +1,6 @@
 # LinceMultipleLovers - 学生时代多恋人Mod
 
-[![GitHub](https://img.shields.io/github/license/lincexu/studentAgeLinceMultipleLovers)](LICENSE)
-[![GitHub last commit](https://img.shields.io/github/last-commit/lincexu/studentAgeLinceMultipleLovers)](https://github.com/lincexu/studentAgeLinceMultipleLovers/commits/main)
+本文档由ai生成有改动。
 
 ## 简介
 
@@ -36,7 +35,7 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 
 3. **启动游戏**
    - 启动游戏，Mod会自动加载
-   - 查看BepInEx控制台确认Mod加载成功
+   - F1查看BepInEx控制台确认Mod加载成功
 
 ## 配置说明
 
@@ -55,9 +54,9 @@ EnableMultipleLovers = true
 DebugMode = false
 ```
 
-## 调试命令
+## 调试命令（暂不支持）
 
-在游戏中按 `Enter` 打开聊天框，输入以下命令：
+在游戏中启动 `控制台` 打开聊天框，输入以下命令：
 
 | 命令 | 功能 |
 |------|------|
@@ -105,9 +104,8 @@ DebugMode = false
 ### 环境需求
 
 - .NET Framework 4.7.2 或 .NET 6.0
-- Visual Studio 2022 或 VS Code
 
-### 构建步骤
+### github构建步骤
 
 1. 克隆仓库
 ```bash
@@ -124,7 +122,7 @@ cd studentAgeLinceMultipleLovers
 dotnet build
 ```
 
-4. 输出文件位于 `bin/Debug/net472/LinceMultipleLovers.dll`
+4. 输出文件位于 `bin/Debug/net472/LinceMultipleLovers.dll` 
 
 ## 项目结构
 
@@ -153,20 +151,20 @@ linceMultipleLovers/
 ## 常见问题
 
 ### Q: 安装后存档会损坏吗？
-A: 不会。本Mod完全兼容原版存档格式。
+A: 目前未知。本Mod完全兼容原版存档格式，但目前处于早期开发阶段，可能有损坏的风险，建议新游戏或备份存档。
 
 ### Q: 卸载Mod后存档还能用吗？
-A: 可以。卸载后只保留 `loverId` 的第一个恋人，其他恋人关系会消失。
+A: 理论可以。卸载后只保留 `loverId` 的第一个恋人，其他恋人关系会消失。
 
 ### Q: 如何添加新的恋人？
 A: 正常进行游戏，告白成功后自动添加到恋人列表。
 
 ### Q: 为什么话题按钮有时不显示？
-A: 每个恋人每回合只能话题一次，请检查是否已话题过。
+A: 每个恋人每回合只能话题一次（已修改官方底层代码），请检查是否已话题过。
 
 ## 更新日志
 
-### v1.0.0 (2024)
+### v0.1.0 (2026-02-12)
 - 初始版本发布
 - 实现多恋人核心功能
 - 支持话题、活动、小游戏
@@ -178,21 +176,31 @@ A: 每个恋人每回合只能话题一次，请检查是否已话题过。
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+本项目采用 MIT 许可证 
 
 ## 致谢
 
 - [BepInEx](https://github.com/BepInEx/BepInEx) - 插件框架
 - [Harmony](https://github.com/pardeike/Harmony) - 补丁框架
-- 《学生时代》开发团队
 
 ## 联系方式
 
 如有问题或建议，请通过以下方式联系：
 
 - GitHub Issues: https://github.com/lincexu/studentAgeLinceMultipleLovers/issues
-- 邮件: [your-email@example.com]
+- b站: UID:491053555
+- 黑盒: UID:47583706
+- 邮箱: lincexu@qq.com、lincexumen@gmail.com
 
 ---
 
-**注意**: 本Mod为第三方制作，与《学生时代》官方无关。
+**注意**: 
+
+（1）本mod基于BepInEx：
+是对游戏代码打补丁，并非官方支持的mod创意工坊（官方不支持多个恋人），加上早期开发测试，有一定坏档风险。
+仅欢迎有意愿和具备一定基础电脑常识的玩家尝试。（至少报错的时候能找得到日志文件，存档发给我）
+
+（2）免责申明:
+所有涉及的代码变更均为研究学习和同人改动，与游戏官方无任何关联。不反映、不倡导、不影射现实生活中的任何人际关系、两性观念或社会制度。Mod完全免费开源，相关代码已上传github。
+
+（3）由于我自从游戏正式版上线以来一直都在做mod，还没有自己玩过一次，所以一直用的老版本存档测试，所以没有对新dlc角色测试。

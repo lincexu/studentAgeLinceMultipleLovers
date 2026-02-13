@@ -155,43 +155,25 @@ namespace LinceMultipleLovers
                 }
                 Log.LogInfo($"找到RelationData类型: {relationDataType.FullName}");
 
-                // 应用RelationDataPatch
+                // 应用RelationDataPatch - 社交容量计算
                 Log.LogInfo("正在应用RelationData补丁...");
-
-                // IsMatchRelationType(Role, int)
-                var isMatchMethod1 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(TheEntity.Role), typeof(int) });
-                if (isMatchMethod1 != null)
+                var refreshSocialCapacityMethod = relationDataType.GetMethod("RefreshSocialCapacity", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (refreshSocialCapacityMethod != null)
                 {
-                    Harmony.Patch(isMatchMethod1,
-                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationType_Prefix)));
-                    Log.LogInfo("成功应用IsMatchRelationType(Role, int)补丁");
+                    try
+                    {
+                        Harmony.Patch(refreshSocialCapacityMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.RefreshSocialCapacity_Prefix)));
+                        Log.LogInfo("成功应用RefreshSocialCapacity补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用RefreshSocialCapacity补丁失败: {ex}");
+                    }
                 }
-
-                // IsMatchRelationType(int, int)
-                var isMatchMethod2 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(int), typeof(int) });
-                if (isMatchMethod2 != null)
+                else
                 {
-                    Harmony.Patch(isMatchMethod2,
-                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationTypeById_Prefix)));
-                    Log.LogInfo("成功应用IsMatchRelationType(int, int)补丁");
-                }
-
-                // ChangeRelation
-                var changeRelationMethod = relationDataType.GetMethod("ChangeRelation");
-                if (changeRelationMethod != null)
-                {
-                    Harmony.Patch(changeRelationMethod,
-                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.ChangeRelation_Postfix)));
-                    Log.LogInfo("成功应用ChangeRelation补丁");
-                }
-
-                // GetRelationship
-                var getRelationshipMethod = relationDataType.GetMethod("GetRelationship");
-                if (getRelationshipMethod != null)
-                {
-                    Harmony.Patch(getRelationshipMethod,
-                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.GetRelationship_Postfix)));
-                    Log.LogInfo("成功应用GetRelationship补丁");
+                    Log.LogError("找不到RefreshSocialCapacity方法");
                 }
 
                 // 应用MapRoleViewPatch

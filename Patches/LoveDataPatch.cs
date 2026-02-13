@@ -34,6 +34,20 @@ namespace LinceMultipleLovers.Patches
             }
 
             // 跳过原版对loverId的检查，其他检查保留
+            
+            // 关键修改：如果该NPC已经是恋人，不显示告白按钮
+            if (LoverIdInterceptor.IsLover(_npc.id))
+            {
+                __result = false;
+                
+                if (ModConfig.DebugMode.Value)
+                {
+                    LinceMultipleLoversPlugin.Log.LogInfo($"[CanShowVindicateBtn] NPC {_npc.Name}({_npc.id}) 已经是恋人，隐藏告白按钮");
+                }
+                
+                return false;
+            }
+            
             if (_npc.id == 3) // 排除特定NPC
             {
                 __result = false;
@@ -178,12 +192,13 @@ namespace LinceMultipleLovers.Patches
                 {
                     LinceMultipleLoversPlugin.LoversManager.AddLover(__state);
                     
-                    // 恢复loverId为之前的值，保持原版存档兼容性
-                    __instance.loverId = __state;
+                    // 重要：不恢复loverId，保持为新恋人
+                    // 这样珍贵回忆等系统能正确响应
+                    // loverId会在下次交互时通过MapRoleView.RefreshData自动调整
                     
                     if (ModConfig.DebugMode.Value)
                     {
-                        LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 添加新恋人 {_roleId}，保留原恋人 {__state}，恢复loverId={__state}");
+                        LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 添加新恋人 {_roleId}，保留原恋人 {__state}，loverId保持为{_roleId}");
                     }
                 }
                 else
