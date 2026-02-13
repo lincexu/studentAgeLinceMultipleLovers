@@ -146,54 +146,6 @@ namespace LinceMultipleLovers
                     Log.LogInfo("成功应用GetTopics补丁(社交话题)");
                 }
 
-                // 获取RelationData类型
-                var relationDataType = typeof(Singleton<RoleMgr>).Assembly.GetType("RelationData");
-                if (relationDataType == null)
-                {
-                    Log.LogError("无法找到RelationData类型");
-                    return;
-                }
-                Log.LogInfo($"找到RelationData类型: {relationDataType.FullName}");
-
-                // 应用RelationDataPatch
-                Log.LogInfo("正在应用RelationData补丁...");
-
-                // IsMatchRelationType(Role, int)
-                var isMatchMethod1 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(TheEntity.Role), typeof(int) });
-                if (isMatchMethod1 != null)
-                {
-                    Harmony.Patch(isMatchMethod1,
-                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationType_Prefix)));
-                    Log.LogInfo("成功应用IsMatchRelationType(Role, int)补丁");
-                }
-
-                // IsMatchRelationType(int, int)
-                var isMatchMethod2 = relationDataType.GetMethod("IsMatchRelationType", new[] { typeof(int), typeof(int) });
-                if (isMatchMethod2 != null)
-                {
-                    Harmony.Patch(isMatchMethod2,
-                        prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.IsMatchRelationTypeById_Prefix)));
-                    Log.LogInfo("成功应用IsMatchRelationType(int, int)补丁");
-                }
-
-                // ChangeRelation
-                var changeRelationMethod = relationDataType.GetMethod("ChangeRelation");
-                if (changeRelationMethod != null)
-                {
-                    Harmony.Patch(changeRelationMethod,
-                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.ChangeRelation_Postfix)));
-                    Log.LogInfo("成功应用ChangeRelation补丁");
-                }
-
-                // GetRelationship
-                var getRelationshipMethod = relationDataType.GetMethod("GetRelationship");
-                if (getRelationshipMethod != null)
-                {
-                    Harmony.Patch(getRelationshipMethod,
-                        postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.GetRelationship_Postfix)));
-                    Log.LogInfo("成功应用GetRelationship补丁");
-                }
-
                 // 应用MapRoleViewPatch
                 Log.LogInfo("正在应用MapRoleView补丁...");
                 var mapRoleViewType = typeof(View.Main.MapRoleView);
@@ -352,6 +304,28 @@ namespace LinceMultipleLovers
                     Log.LogError("找不到QuickSocialView.OnRenderSocial方法");
                 }
 
+                // 应用RelationDataPatch
+                Log.LogInfo("正在应用RelationData补丁...");
+                var relationDataType = typeof(RelationData);
+                var changeRelationMethod = relationDataType.GetMethod(nameof(RelationData.ChangeRelation));
+                if (changeRelationMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(changeRelationMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.ChangeRelation_Prefix)));
+                        Log.LogInfo("成功应用RelationData.ChangeRelation补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用RelationData.ChangeRelation补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到RelationData.ChangeRelation方法");
+                }
+
                 Log.LogInfo("所有补丁应用完成!");
             }
             catch (Exception ex)
@@ -378,6 +352,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.0";
+        public const string PLUGIN_VERSION = "0.1.1";
     }
 }
