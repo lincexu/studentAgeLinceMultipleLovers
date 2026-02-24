@@ -15,6 +15,8 @@ namespace LinceMultipleLovers.Patches
     /// </summary>
     public static class LoveDataPatch
     {
+        // 用于在Prefix和Postfix之间传递亲密值
+        private static float _intimacyBeforeSetLover = 0f;
         /// <summary>
         /// 修改CanShowVindicateBtn方法 - 允许在已有恋人的情况下显示表白按钮
         /// 原逻辑: if (this.loverId > 0) return false;
@@ -168,10 +170,11 @@ namespace LinceMultipleLovers.Patches
         public static void SetLover_Prefix(LoveData __instance, int _roleId, out int __state)
         {
             __state = __instance.loverId; // 保存原恋人ID
+            _intimacyBeforeSetLover = Singleton<RoleMgr>.Ins.GetRole().GetAttr(520); // 保存当前亲密值到静态字段
             
             if (ModConfig.DebugMode.Value)
             {
-                LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 准备设置恋人: {_roleId}, 原恋人: {__state}");
+                LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 准备设置恋人: {_roleId}, 原恋人: {__state}, 当前亲密值: {_intimacyBeforeSetLover}");
             }
         }
 
@@ -206,6 +209,17 @@ namespace LinceMultipleLovers.Patches
                     if (ModConfig.DebugMode.Value)
                     {
                         LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 设置第一个恋人 {_roleId}");
+                    }
+                }
+                
+                // 恢复亲密值（阻止重置为5）
+                if (_intimacyBeforeSetLover > 5f)
+                {
+                    Singleton<RoleMgr>.Ins.GetRole().SetAttr(520, _intimacyBeforeSetLover, 0f);
+                    
+                    if (ModConfig.DebugMode.Value)
+                    {
+                        LinceMultipleLoversPlugin.Log.LogInfo($"[SetLover] 恢复亲密值: {_intimacyBeforeSetLover} (阻止重置为5)");
                     }
                 }
             }

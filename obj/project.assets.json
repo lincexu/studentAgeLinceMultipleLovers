@@ -12,13 +12,13 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "0.1.0",
+    "version": "0.1.2.1",
     "restore": {
-      "projectUniqueName": "E:\\steam\\steamapps\\common\\StudentAge\\lincemultiplelovers\\LinceMultipleLovers.csproj",
+      "projectUniqueName": "E:\\steam\\steamapps\\common\\StudentAge\\linceMultipleLovers\\linceMultipleLovers.csproj",
       "projectName": "LinceMultipleLovers",
-      "projectPath": "E:\\steam\\steamapps\\common\\StudentAge\\lincemultiplelovers\\LinceMultipleLovers.csproj",
+      "projectPath": "E:\\steam\\steamapps\\common\\StudentAge\\linceMultipleLovers\\linceMultipleLovers.csproj",
       "packagesPath": "C:\\Users\\lince\\.nuget\\packages\\",
-      "outputPath": "E:\\steam\\steamapps\\common\\StudentAge\\lincemultiplelovers\\obj\\",
+      "outputPath": "E:\\steam\\steamapps\\common\\StudentAge\\linceMultipleLovers\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

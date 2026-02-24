@@ -10,34 +10,61 @@ namespace LinceMultipleLovers
         // 配置项
         public static ConfigEntry<bool> EnableMultipleLovers { get; private set; } = null!;
         public static ConfigEntry<bool> BypassSingleCheck { get; private set; } = null!;
+        public static ConfigEntry<bool> AlwaysSingleCheck { get; private set; } = null!;
+        public static ConfigEntry<bool> AllowLoveActivity { get; private set; } = null!;
         public static ConfigEntry<bool> DebugMode { get; private set; } = null!;
+        public static ConfigEntry<string> FeedbackInfo { get; private set; } = null!;
 
         public static void Init(ConfigFile config)
         {
             EnableMultipleLovers = config.Bind(
-                "General",
-                "EnableMultipleLovers",
+                "通用设置",
+                "启用多恋人功能",
                 true,
-                "启用多恋人功能 (Enable Multiple Lovers Feature)"
+                "启用多恋人功能，允许同时拥有多个恋人"
             );
 
             BypassSingleCheck = config.Bind(
-                "General",
-                "BypassSingleCheck",
+                "通用设置",
+                "绕过单身检查",
                 true,
-                "绕过单身检查，允许在已有恋人的情况下表白 (Bypass single check when vindicating)"
+                "允许在已有恋人的情况下继续告白"
+            );
+
+            AlwaysSingleCheck = config.Bind(
+                "通用设置",
+                "主角始终判定为单身",
+                false,
+                "主角单身判定始终为真（用于调试或特殊玩法）"
+            );
+
+            AllowLoveActivity = config.Bind(
+                "通用设置",
+                "允许恋爱活动",
+                true,
+                "即使开启强制单身，也允许恋爱活动触发（用于任务推进）"
             );
 
             DebugMode = config.Bind(
-                "Debug",
-                "DebugMode",
+                "调试设置",
+                "启用调试日志",
                 false,
-                "启用调试日志 (Enable debug logging)"
+                "启用调试日志输出"
+            );
+
+            // 反馈说明（只读）
+            FeedbackInfo = config.Bind(
+                "关于",
+                "反馈说明",
+                "当前Mod仍处于测试版本，如遇Bug请联系: lincexu@qq.com",
+                "【重要】当前Mod仍处于测试版本，如遇Bug请联系: lincexu@qq.com"
             );
 
             // 监听配置变更事件
             EnableMultipleLovers.SettingChanged += OnSettingChanged;
             BypassSingleCheck.SettingChanged += OnSettingChanged;
+            AlwaysSingleCheck.SettingChanged += OnSettingChanged;
+            AllowLoveActivity.SettingChanged += OnSettingChanged;
             DebugMode.SettingChanged += OnSettingChanged;
 
             LinceMultipleLoversPlugin.Log.LogInfo("配置初始化完成");

@@ -282,31 +282,110 @@ namespace LinceMultipleLovers
                     Log.LogError("找不到ConditionerLove.OnIsMatch方法");
                 }
 
-                // 应用QuickSocialViewPatch
-                Log.LogInfo("正在应用QuickSocialView补丁...");
-                var quickSocialViewType = typeof(View.TheAction.QuickSocialView);
-                
-                // OnOpen
-                var onOpenMethod = quickSocialViewType.GetMethod("OnOpen");
-                if (onOpenMethod != null)
+                // 应用ConditionerLove2Patch
+                Log.LogInfo("正在应用ConditionerLove2补丁...");
+                var conditionerLove2Type = typeof(Condition.ConditionerLove2);
+                var onIsMatchMethod2 = conditionerLove2Type.GetMethod("OnIsMatch");
+                if (onIsMatchMethod2 != null)
                 {
                     try
                     {
-                        Harmony.Patch(onOpenMethod,
-                            postfix: new HarmonyMethod(typeof(Patches.QuickSocialViewPatch), nameof(Patches.QuickSocialViewPatch.OnOpen_Postfix)));
-                        Log.LogInfo("成功应用QuickSocialView.OnOpen补丁");
+                        Harmony.Patch(onIsMatchMethod2,
+                            prefix: new HarmonyMethod(typeof(Patches.ConditionerLove2Patch), nameof(Patches.ConditionerLove2Patch.OnIsMatch_Prefix)));
+                        Log.LogInfo("成功应用ConditionerLove2.OnIsMatch补丁");
                     }
                     catch (Exception ex)
                     {
-                        Log.LogError($"应用QuickSocialView.OnOpen补丁失败: {ex}");
+                        Log.LogError($"应用ConditionerLove2.OnIsMatch补丁失败: {ex}");
                     }
                 }
                 else
                 {
-                    Log.LogError("找不到QuickSocialView.OnOpen方法");
+                    Log.LogError("找不到ConditionerLove2.OnIsMatch方法");
                 }
-                
-                // OnRenderSocial
+
+                var onGetProgressMethod = conditionerLove2Type.GetMethod("OnGetProgress");
+                if (onGetProgressMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(onGetProgressMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.ConditionerLove2Patch), nameof(Patches.ConditionerLove2Patch.OnGetProgress_Prefix)));
+                        Log.LogInfo("成功应用ConditionerLove2.OnGetProgress补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用ConditionerLove2.OnGetProgress补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到ConditionerLove2.OnGetProgress方法");
+                }
+
+                // 应用RelationDataPatch
+                Log.LogInfo("正在应用RelationData补丁...");
+                var relationDataType = typeof(RelationData);
+                var refreshSocialCapacityMethod = relationDataType.GetMethod("RefreshSocialCapacity");
+                if (refreshSocialCapacityMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(refreshSocialCapacityMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.RefreshSocialCapacity_Prefix)));
+                        Log.LogInfo("成功应用RelationData.RefreshSocialCapacity补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用RelationData.RefreshSocialCapacity补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到RelationData.RefreshSocialCapacity方法");
+                }
+
+                var getSocialCapacityMethod = relationDataType.GetMethod("GetSocialCapacity");
+                if (getSocialCapacityMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(getSocialCapacityMethod,
+                            postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.GetSocialCapacity_Postfix)));
+                        Log.LogInfo("成功应用RelationData.GetSocialCapacity补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用RelationData.GetSocialCapacity补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到RelationData.GetSocialCapacity方法");
+                }
+
+                var getRelationshipMethod = relationDataType.GetMethod("GetRelationship");
+                if (getRelationshipMethod != null)
+                {
+                    try
+                    {
+                        Harmony.Patch(getRelationshipMethod,
+                            postfix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.GetRelationship_Postfix)));
+                        Log.LogInfo("成功应用RelationData.GetRelationship补丁");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"应用RelationData.GetRelationship补丁失败: {ex}");
+                    }
+                }
+                else
+                {
+                    Log.LogError("找不到RelationData.GetRelationship方法");
+                }
+
+                // 应用QuickSocialViewPatch
+                Log.LogInfo("正在应用QuickSocialView补丁...");
+                var quickSocialViewType = typeof(View.TheAction.QuickSocialView);
                 var onRenderSocialMethod = quickSocialViewType.GetMethod("OnRenderSocial", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 if (onRenderSocialMethod != null)
                 {
@@ -326,26 +405,26 @@ namespace LinceMultipleLovers
                     Log.LogError("找不到QuickSocialView.OnRenderSocial方法");
                 }
 
-                // 应用RelationDataPatch
-                Log.LogInfo("正在应用RelationData补丁...");
-                var relationDataType = typeof(RelationData);
-                var changeRelationMethod = relationDataType.GetMethod(nameof(RelationData.ChangeRelation));
-                if (changeRelationMethod != null)
+                // 应用ShareViewPatch
+                Log.LogInfo("正在应用ShareView补丁...");
+                var shareViewType = typeof(View.Main.ShareView);
+                var refreshFriendMethod = shareViewType.GetMethod("RefreshFriend", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (refreshFriendMethod != null)
                 {
                     try
                     {
-                        Harmony.Patch(changeRelationMethod,
-                            prefix: new HarmonyMethod(typeof(Patches.RelationDataPatch), nameof(Patches.RelationDataPatch.ChangeRelation_Prefix)));
-                        Log.LogInfo("成功应用RelationData.ChangeRelation补丁");
+                        Harmony.Patch(refreshFriendMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.ShareViewPatch), nameof(Patches.ShareViewPatch.RefreshFriend_Prefix)));
+                        Log.LogInfo("成功应用ShareView.RefreshFriend补丁");
                     }
                     catch (Exception ex)
                     {
-                        Log.LogError($"应用RelationData.ChangeRelation补丁失败: {ex}");
+                        Log.LogError($"应用ShareView.RefreshFriend补丁失败: {ex}");
                     }
                 }
                 else
                 {
-                    Log.LogError("找不到RelationData.ChangeRelation方法");
+                    Log.LogError("找不到ShareView.RefreshFriend方法");
                 }
 
                 Log.LogInfo("所有补丁应用完成!");
@@ -374,6 +453,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.1";
+        public const string PLUGIN_VERSION = "0.1.2.1";
     }
 }
