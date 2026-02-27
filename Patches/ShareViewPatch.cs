@@ -3,15 +3,23 @@ using System.Collections.Generic;
 using System.Linq;
 using Sdk;
 using View.Main;
+using UnityEngine.Events;
 
 namespace LinceMultipleLovers.Patches
 {
     /// <summary>
     /// ShareView补丁 - 修复通关结算页面只显示一个恋人和至交显示问题
     /// 支持显示所有恋人和正确的朋友列表
+    /// 新增：恋人切换按钮功能，支持循环切换显示多个恋人
     /// </summary>
     public static class ShareViewPatch
     {
+        // 当前显示的恋人索引（用于循环切换）
+        private static int _currentLoverIndex = 0;
+        
+        // 当前ShareView实例（用于刷新显示）
+        private static ShareView _currentShareView = null;
+
         /// <summary>
         /// 修改RefreshFriend方法 - 支持显示多个恋人和正确的朋友列表
         /// </summary>
@@ -21,6 +29,9 @@ namespace LinceMultipleLovers.Patches
         {
             if (!ModConfig.EnableMultipleLovers.Value)
                 return true; // 执行原方法
+
+            // 保存当前实例
+            _currentShareView = __instance;
 
             // 获取所有恋人ID
             var loverIds = LoverIdInterceptor.GetAllLoverIds();
@@ -33,6 +44,7 @@ namespace LinceMultipleLovers.Patches
             var friendsField = typeof(ShareView).GetField("friends", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var groupFriendField = typeof(ShareView).GetField("group_friend", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var itemgroupFriendField = typeof(ShareView).GetField("itemgroup_friend", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var isSavingField = typeof(ShareView).GetField("isSaving", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             // ========== 处理恋人显示 ==========
             // 注意：原版UI中，group_lover只显示一个恋人（主恋人）
@@ -41,20 +53,27 @@ namespace LinceMultipleLovers.Patches
             
             if (loverIds.Count > 0)
             {
-                // 设置主恋人（第一个）到单独的恋人显示位置
-                int primaryLoverId = loverIds[0];
-                loverIdField?.SetValue(__instance, primaryLoverId);
+                // 确保当前索引在有效范围内
+                if (_currentLoverIndex >= loverIds.Count)
+                    _currentLoverIndex = 0;
+                
+                // 获取当前要显示的恋人ID（根据索引）
+                int currentLoverId = loverIds[_currentLoverIndex];
+                loverIdField?.SetValue(__instance, currentLoverId);
                 
                 var loverCell = loverCellField?.GetValue(__instance);
                 if (loverCell != null)
                 {
-                    // 设置主恋人数据
+                    // 设置恋人数据
                     var dataField = loverCell.GetType().GetField("data", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    dataField?.SetValue(loverCell, primaryLoverId);
+                    dataField?.SetValue(loverCell, currentLoverId);
                     
-                    // 调用OnRenderFriend渲染主恋人
+                    // 调用OnRenderFriend渲染恋人
                     var onRenderFriendMethod = typeof(ShareView).GetMethod("OnRenderFriend", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     onRenderFriendMethod?.Invoke(__instance, new object[] { loverCell });
+                    
+                    // 设置恋人切换按钮
+                    SetupLoverSwitchButton(loverCell, loverIds, isSavingField?.GetValue(__instance));
                 }
                 
                 // 显示恋人组
@@ -64,7 +83,7 @@ namespace LinceMultipleLovers.Patches
                 
                 if (ModConfig.DebugMode.Value)
                 {
-                    LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 主恋人: {primaryLoverId}，总恋人数量: {loverIds.Count}");
+                    LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 当前显示恋人: {currentLoverId} (索引: {_currentLoverIndex + 1}/{loverIds.Count})");
                 }
             }
             else
@@ -120,12 +139,15 @@ namespace LinceMultipleLovers.Patches
             // 构建显示列表：如果有多个恋人，将其他恋人添加到朋友组显示
             var friendsDisplayIds = new List<int>();
             
-            // 如果有多个恋人，将除第一个外的其他恋人添加到朋友组
+            // 如果有多个恋人，将除当前显示外的其他恋人添加到朋友组
             if (loverIds.Count > 1)
             {
-                for (int i = 1; i < loverIds.Count; i++)
+                for (int i = 0; i < loverIds.Count; i++)
                 {
-                    friendsDisplayIds.Add(loverIds[i]);
+                    if (i != _currentLoverIndex) // 跳过当前显示在主位置的恋人
+                    {
+                        friendsDisplayIds.Add(loverIds[i]);
+                    }
                 }
             }
             
@@ -208,6 +230,135 @@ namespace LinceMultipleLovers.Patches
             }
             
             return false; // 跳过原方法
+        }
+
+        /// <summary>
+        /// 设置恋人切换按钮
+        /// </summary>
+        private static void SetupLoverSwitchButton(object loverCell, List<int> loverIds, object isSavingValue)
+        {
+            if (loverCell == null || loverIds.Count <= 1)
+                return; // 只有一个恋人，不需要切换按钮
+
+            // 获取Cell_ShareHeadItemUI的字段
+            var btnChangeField = loverCell.GetType().GetField("btn_change", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            var txtNameField = loverCell.GetType().GetField("txtex_name", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            
+            var btnChange = btnChangeField?.GetValue(loverCell);
+            var txtName = txtNameField?.GetValue(loverCell);
+            
+            if (btnChange == null)
+                return;
+
+            // 获取按钮的GameObject和RectTransform
+            var btnGameObject = btnChange.GetType().GetProperty("gameObject")?.GetValue(btnChange);
+            var btnTransform = btnChange.GetType().GetProperty("transform")?.GetValue(btnChange);
+            
+            // 检查是否在保存状态
+            bool isSaving = isSavingValue is bool ? (bool)isSavingValue : false;
+            
+            // 显示切换按钮（多个恋人时显示）
+            bool shouldShow = !isSaving;
+            btnGameObject?.GetType().GetMethod("SetActive")?.Invoke(btnGameObject, new object[] { shouldShow });
+            
+            // 调整按钮位置到更右边（避免遮挡名称）
+            if (btnTransform != null && shouldShow)
+            {
+                // 获取anchoredPosition属性
+                var anchoredPositionProperty = btnTransform.GetType().GetProperty("anchoredPosition");
+                if (anchoredPositionProperty != null)
+                {
+                    // 设置按钮位置为 (140, 0) - 更靠右
+                    var newPosition = new UnityEngine.Vector2(140f, 0f);
+                    anchoredPositionProperty.SetValue(btnTransform, newPosition);
+                    
+                    if (ModConfig.DebugMode.Value)
+                    {
+                        LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 调整切换按钮位置到: {newPosition}");
+                    }
+                }
+            }
+            
+            // 调整名称文本宽度（给按钮留出空间）
+            if (txtName != null && shouldShow)
+            {
+                var rectTransform = txtName.GetType().GetProperty("rectTransform")?.GetValue(txtName);
+                var setSizeXMethod = rectTransform?.GetType().GetMethod("SetSizeX");
+                setSizeXMethod?.Invoke(rectTransform, new object[] { 150f }); // 增加宽度到150，因为按钮更靠右了
+            }
+            else if (txtName != null)
+            {
+                var rectTransform = txtName.GetType().GetProperty("rectTransform")?.GetValue(txtName);
+                var setSizeXMethod = rectTransform?.GetType().GetMethod("SetSizeX");
+                setSizeXMethod?.Invoke(rectTransform, new object[] { 170f });
+            }
+
+            // 清除旧的点击事件并添加新的
+            var btnComponent = btnChange.GetType().GetProperty("btn")?.GetValue(btnChange);
+            if (btnComponent != null)
+            {
+                // 获取onClick事件
+                var onClickField = btnComponent.GetType().GetField("m_OnClick", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var onClick = onClickField?.GetValue(btnComponent);
+                
+                // 移除所有监听器
+                var removeAllListenersMethod = onClick?.GetType().GetMethod("RemoveAllListeners");
+                removeAllListenersMethod?.Invoke(onClick, null);
+                
+                // 添加新的点击事件
+                var addListenerMethod = onClick?.GetType().GetMethod("AddListener", new[] { typeof(UnityAction) });
+                if (addListenerMethod != null)
+                {
+                    var action = new UnityAction(() => OnLoverSwitchButtonClick(loverIds));
+                    addListenerMethod.Invoke(onClick, new object[] { action });
+                    
+                    if (ModConfig.DebugMode.Value)
+                    {
+                        LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 已设置恋人切换按钮点击事件");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 恋人切换按钮点击处理
+        /// </summary>
+        private static void OnLoverSwitchButtonClick(List<int> loverIds)
+        {
+            if (loverIds.Count <= 1)
+                return;
+
+            // 切换到下一个恋人（循环）
+            _currentLoverIndex = (_currentLoverIndex + 1) % loverIds.Count;
+            
+            if (ModConfig.DebugMode.Value)
+            {
+                LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 切换到恋人索引: {_currentLoverIndex} (ID: {loverIds[_currentLoverIndex]})");
+            }
+
+            // 刷新显示
+            if (_currentShareView != null)
+            {
+                var refreshFriendMethod = typeof(ShareView).GetMethod("RefreshFriend", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                refreshFriendMethod?.Invoke(_currentShareView, null);
+            }
+        }
+
+        /// <summary>
+        /// 当ShareView关闭时重置索引
+        /// </summary>
+        [HarmonyPatch(typeof(ShareView), "OnClose")]
+        [HarmonyPostfix]
+        public static void OnClose_Postfix()
+        {
+            // 重置恋人索引
+            _currentLoverIndex = 0;
+            _currentShareView = null;
+            
+            if (ModConfig.DebugMode.Value)
+            {
+                LinceMultipleLoversPlugin.Log.LogInfo($"[ShareView] 页面关闭，重置恋人索引");
+            }
         }
     }
 }

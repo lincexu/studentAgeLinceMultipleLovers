@@ -8,11 +8,19 @@ namespace LinceMultipleLovers.Patches
     /// <summary>
     /// ConditionerLove2补丁 - 修复恋人条件判断，支持多恋人
     /// 原逻辑只检查loverId，需要扩展为检查所有恋人
+    /// 
+    /// 优化内容：
+    /// 1. 支持多恋人条件判断（subType=1,2,22,-22）
+    /// 2. 实现AllowLoveActivity配置对type=3行动的特殊处理
+    ///    - 当AllowLoveActivity=true时，type=3行动的单身验证使用原版逻辑
+    ///    - 其他情况遵循AlwaysSingleCheck的强制单身规则
     /// </summary>
     public static class ConditionerLove2Patch
     {
         /// <summary>
         /// 修改OnIsMatch方法 - 支持多恋人条件判断
+        /// [52, 1, 1] - 已脱单（有恋人）
+        /// [52, 1, -1] - 单身（无恋人）
         /// [52, 2, 1, X] - X是主角的恋人（只要X在恋人列表中即成功）
         /// [52, 2, -1, X] - X不是主角的恋人
         /// [52, 22] - 有同性别恋人
@@ -41,54 +49,10 @@ namespace LinceMultipleLovers.Patches
             // subType = 1: 脱单/单身检查
             if (subType == 1)
             {
-                // 如果启用了"始终单身"选项
-                if (ModConfig.AlwaysSingleCheck.Value)
-                {
-                    // 如果同时启用了"允许恋爱活动"，则根据实际状态返回（用于活动触发）
-                    // 否则强制返回单身状态
-                    if (ModConfig.AllowLoveActivity.Value)
-                    {
-                        // 根据实际恋人状态返回，允许活动触发
-                        if (value == 1)
-                        {
-                            // [52, 1, 1] - 已脱单（有恋人）
-                            __result = loverIds.Count > 0;
-                        }
-                        else
-                        {
-                            // [52, 1, -1或其他] - 单身（无恋人）
-                            __result = loverIds.Count == 0;
-                        }
-                        
-                        if (ModConfig.DebugMode.Value)
-                        {
-                            LinceMultipleLoversPlugin.Log.LogInfo($"[ConditionerLove2] 脱单检查(允许活动模式): value={value}, 恋人数量={loverIds.Count}, 结果={__result}");
-                        }
-                    }
-                    else
-                    {
-                        // 强制单身模式
-                        if (value == 1)
-                        {
-                            // [52, 1, 1] - 已脱单，但强制返回false
-                            __result = false;
-                        }
-                        else
-                        {
-                            // [52, 1, -1或其他] - 单身，强制返回true
-                            __result = true;
-                        }
-                        
-                        if (ModConfig.DebugMode.Value)
-                        {
-                            LinceMultipleLoversPlugin.Log.LogInfo($"[ConditionerLove2] 脱单检查(强制单身模式): value={value}, 结果={__result}");
-                        }
-                    }
-                    
-                    return false; // 跳过原方法
-                }
+                // 检查是否应该使用原版单身验证逻辑
+                // 关键优化：AllowLoveActivity=true 且当前是type=3行动解锁检查时使用原版逻辑
+                bool useOriginalLogic = ShouldUseOriginalSingleCheck();
                 
-                // 正常模式
                 if (value == 1)
                 {
                     // [52, 1, 1] - 已脱单（有恋人）
@@ -100,9 +64,29 @@ namespace LinceMultipleLovers.Patches
                     __result = loverIds.Count == 0;
                 }
                 
-                if (ModConfig.DebugMode.Value)
+                // 如果启用了"始终单身"选项且不使用原版逻辑，则强制返回单身状态
+                if (ModConfig.AlwaysSingleCheck.Value && !useOriginalLogic)
                 {
-                    LinceMultipleLoversPlugin.Log.LogInfo($"[ConditionerLove2] 脱单检查: value={value}, 恋人数量={loverIds.Count}, 结果={__result}");
+                    if (value == 1)
+                    {
+                        // [52, 1, 1] - 已脱单，但强制返回false
+                        __result = false;
+                    }
+                    else
+                    {
+                        // [52, 1, -1或其他] - 单身，强制返回true
+                        __result = true;
+                    }
+                    
+                    if (ModConfig.DebugMode.Value)
+                    {
+                        LinceMultipleLoversPlugin.Log.LogInfo($"[ConditionerLove2] 强制单身模式: value={value}, 结果={__result}, 上下文={GetContextInfo()}");
+                    }
+                }
+                else if (ModConfig.DebugMode.Value)
+                {
+                    string mode = useOriginalLogic ? "原版逻辑" : "正常模式";
+                    LinceMultipleLoversPlugin.Log.LogInfo($"[ConditionerLove2] 脱单检查({mode}): value={value}, 恋人数量={loverIds.Count}, 结果={__result}, 上下文={GetContextInfo()}");
                 }
                 
                 return false; // 跳过原方法
@@ -182,6 +166,32 @@ namespace LinceMultipleLovers.Patches
 
             // 其他情况，执行原方法
             return true;
+        }
+
+        /// <summary>
+        /// 判断是否应该使用原版单身检查逻辑
+        /// 核心逻辑：
+        /// 1. 如果未启用多恋人功能 → 使用原版逻辑
+        /// 2. 如果未启用强制单身 → 使用原版逻辑
+        /// 3. 如果AllowLoveActivity=true 且当前是type=3行动解锁检查 → 使用原版逻辑
+        /// 4. 其他情况 → 使用强制单身逻辑
+        /// </summary>
+        private static bool ShouldUseOriginalSingleCheck()
+        {
+            // 使用ActionUnlockContext的决策逻辑
+            return ActionUnlockContext.ShouldUseOriginalSingleCheck();
+        }
+
+        /// <summary>
+        /// 获取当前上下文信息（用于调试）
+        /// </summary>
+        private static string GetContextInfo()
+        {
+            if (ActionUnlockContext.IsInUnlockContext)
+            {
+                return $"ActionUnlock(actionId={ActionUnlockContext.CurrentActionId}, type={ActionUnlockContext.CurrentActionType})";
+            }
+            return "General";
         }
         
         /// <summary>

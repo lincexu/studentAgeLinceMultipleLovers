@@ -427,6 +427,19 @@ namespace LinceMultipleLovers
                     Log.LogError("找不到ShareView.RefreshFriend方法");
                 }
 
+                // 应用ActionUnlockPatch - 使用Harmony自动补丁
+                Log.LogInfo("正在应用ActionUnlock补丁...");
+                try
+                {
+                    // 使用PatchAll自动应用带有HarmonyPatch特性的补丁类
+                    Harmony.CreateClassProcessor(typeof(Patches.CommonEvtMgrIsMatchConditionPatch)).Patch();
+                    Log.LogInfo("成功应用CommonEvtMgrIsMatchConditionPatch补丁");
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用ActionUnlockPatch补丁失败: {ex}");
+                }
+
                 Log.LogInfo("所有补丁应用完成!");
             }
             catch (Exception ex)
