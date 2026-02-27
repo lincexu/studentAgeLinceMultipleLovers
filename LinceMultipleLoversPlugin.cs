@@ -440,6 +440,28 @@ namespace LinceMultipleLovers
                     Log.LogError($"应用ActionUnlockPatch补丁失败: {ex}");
                 }
 
+                // 应用ConsoleCommandPatch - 拦截控制台输入，支持LINCE前缀命令
+                Log.LogInfo("正在应用ConsoleCommand补丁...");
+                try
+                {
+                    var debugMgrType = typeof(DebugMgr);
+                    var inputConsoleMethod = debugMgrType.GetMethod("InputConsole");
+                    if (inputConsoleMethod != null)
+                    {
+                        Harmony.Patch(inputConsoleMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.ConsoleCommandPatch), nameof(Patches.ConsoleCommandPatch.Prefix)));
+                        Log.LogInfo($"成功应用ConsoleCommandPatch补丁 (目标: {inputConsoleMethod.DeclaringType.Name}.{inputConsoleMethod.Name})");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到DebugMgr.InputConsole方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用ConsoleCommandPatch补丁失败: {ex}");
+                }
+
                 Log.LogInfo("所有补丁应用完成!");
             }
             catch (Exception ex)
@@ -466,6 +488,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.2.1";
+        public const string PLUGIN_VERSION = "0.1.3";
     }
 }

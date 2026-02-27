@@ -12,6 +12,7 @@ namespace LinceMultipleLovers
         public static ConfigEntry<bool> BypassSingleCheck { get; private set; } = null!;
         public static ConfigEntry<bool> AlwaysSingleCheck { get; private set; } = null!;
         public static ConfigEntry<bool> AllowLoveActivity { get; private set; } = null!;
+        public static ConfigEntry<bool> ForceNoLoveHistory { get; private set; } = null!;
         public static ConfigEntry<bool> DebugMode { get; private set; } = null!;
         public static ConfigEntry<string> FeedbackInfo { get; private set; } = null!;
 
@@ -45,6 +46,13 @@ namespace LinceMultipleLovers
                 "即使开启强制单身，也允许恋爱活动触发（用于任务推进）"
             );
 
+            ForceNoLoveHistory = config.Bind(
+                "通用设置",
+                "强制无恋爱经历",
+                false,
+                "开启时，主角始终被判定为无恋爱经历（condition [11,3] 始终返回true）。关闭时正常验证historyLover"
+            );
+
             DebugMode = config.Bind(
                 "调试设置",
                 "启用调试日志",
@@ -65,6 +73,7 @@ namespace LinceMultipleLovers
             BypassSingleCheck.SettingChanged += OnSettingChanged;
             AlwaysSingleCheck.SettingChanged += OnSettingChanged;
             AllowLoveActivity.SettingChanged += OnSettingChanged;
+            ForceNoLoveHistory.SettingChanged += OnSettingChanged;
             DebugMode.SettingChanged += OnSettingChanged;
 
             LinceMultipleLoversPlugin.Log.LogInfo("配置初始化完成");

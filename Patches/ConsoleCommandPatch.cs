@@ -12,14 +12,14 @@ namespace LinceMultipleLovers.Patches
     ///   LINCE LOVER 角色ID  —— 通过Mod告白系统将指定角色添加为恋人
     ///   LINCE BREAK 角色ID  —— 与指定角色分手，变为熟人并清除历史恋人记录
     /// </summary>
+    [HarmonyPatch(typeof(DebugMgr), nameof(DebugMgr.InputConsole))]
     public static class ConsoleCommandPatch
     {
         /// <summary>
         /// 拦截 InputConsole，优先处理 LINCE 命令
         /// </summary>
-        [HarmonyPatch(typeof(DebugMgr), nameof(DebugMgr.InputConsole))]
         [HarmonyPrefix]
-        public static bool InputConsole_Prefix(string[] parms)
+        public static bool Prefix(string[] parms)
         {
             if (parms == null || parms.Length == 0)
                 return true; // 执行原方法
@@ -45,6 +45,9 @@ namespace LinceMultipleLovers.Patches
                 case "BREAK":
                     HandleBreakCommand(parms);
                     break;
+                case "LOVERID":
+                    HandleLoverIdCommand(parms);
+                    break;
                 default:
                     PrintError($"未知子命令: {parms[1]}");
                     PrintHelp();
@@ -55,7 +58,8 @@ namespace LinceMultipleLovers.Patches
         }
 
         /// <summary>
-        /// LINCE LOVER 角色ID - 通过Mod的告白系统将指定角色添加为恋人
+        /// LINCE LOVER 角色ID - 使用游戏原生 effect [20,2,角色ID,520] 将指定角色设为恋人
+        /// 调用链: ChangeRelation(npcId, 520) → SetLover(npcId) → Mod的Harmony补丁自动处理多恋人
         /// </summary>
         private static void HandleLoverCommand(string[] parms)
         {
@@ -93,36 +97,13 @@ namespace LinceMultipleLovers.Patches
                 return;
             }
 
-            var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
-            int currentLoverId = loveData.loverId;
+            // 使用游戏原生的 effect [20, 2, npcId, 520] 逻辑
+            // ChangeRelation(npcId, 520) 内部会调用 SetLover(npcId)
+            // SetLover 会处理: historyLoverIds、loveDate、fix、OpenFunc(20)、Toast、EventMgr.Send(1601)
+            // Mod 的 Harmony 补丁 (SetLover_Prefix/Postfix) 会自动处理多恋人逻辑
+            Singleton<RoleMgr>.Ins.GetRelationData(true).ChangeRelation(npcId, 520, null, false);
 
-            // 通过Mod的告白系统添加恋人
-            // 1. 添加到Mod的多恋人管理器
-            LinceMultipleLoversPlugin.LoversManager.AddLover(npcId);
-
-            // 2. 添加到游戏的历史恋人记录（存档持久化）
-            if (loveData.historyLoverIds == null)
-                loveData.historyLoverIds = new List<int>();
-            if (!loveData.historyLoverIds.Contains(npcId))
-                loveData.historyLoverIds.Add(npcId);
-
-            // 3. 如果当前没有恋人，设置为活跃恋人并开启恋爱功能
-            if (currentLoverId <= 0)
-            {
-                loveData.loverId = npcId;
-                loveData.loveDate = Singleton<RoundMgr>.Ins.Now();
-                loveData.fix = 1;
-                Singleton<FuncMgr>.Ins.OpenFunc(20, true);
-                Print($"成功将 {npc.Name}({npcId}) 设为恋人（首个恋人）");
-            }
-            else
-            {
-                // 已有恋人 - 仅添加到多恋人列表，不切换活跃恋人，不重置亲密值
-                Print($"成功将 {npc.Name}({npcId}) 添加为额外恋人（当前活跃恋人: {Singleton<RoleMgr>.Ins.GetRole(currentLoverId)?.Name}({currentLoverId})）");
-            }
-
-            // 4. 发送事件通知UI刷新
-            EventMgr.Send(1601);
+            Print($"成功将 {npc.Name}({npcId}) 设为恋人 (via effect [20,2,{npcId},520])");
 
             // 打印当前所有恋人
             var allLovers = LoverIdInterceptor.GetAllLoverIds();
@@ -234,6 +215,52 @@ namespace LinceMultipleLovers.Patches
         }
 
         /// <summary>
+        /// LINCE LOVERID 角色ID - 将loverId直接设定为指定角色
+        /// </summary>
+        private static void HandleLoverIdCommand(string[] parms)
+        {
+            if (parms.Length < 3)
+            {
+                PrintError("用法: LINCE LOVERID <角色ID>");
+                return;
+            }
+
+            if (!int.TryParse(parms[2], out int npcId) || npcId <= 0)
+            {
+                PrintError($"无效的角色ID: {parms[2]}");
+                return;
+            }
+
+            if (Singleton<RoleMgr>.Ins == null)
+            {
+                PrintError("存档未加载，请先进入游戏");
+                return;
+            }
+
+            Role npc = Singleton<RoleMgr>.Ins.GetRole(npcId);
+            if (npc == null)
+            {
+                PrintError($"找不到角色 ID: {npcId}");
+                return;
+            }
+
+            var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
+            int oldLoverId = loveData.loverId;
+
+            // 直接设置loverId
+            loveData.loverId = npcId;
+
+            // 发送事件通知UI刷新
+            EventMgr.Send(1601);
+
+            string oldName = oldLoverId > 0 ? (Singleton<RoleMgr>.Ins.GetRole(oldLoverId)?.Name ?? "未知") : "无";
+            Print($"已将活跃恋人从 {oldName}({oldLoverId}) 切换为 {npc.Name}({npcId})");
+
+            var allLovers = LoverIdInterceptor.GetAllLoverIds();
+            Print($"当前恋人列表: {FormatLoverList(allLovers)}");
+        }
+
+        /// <summary>
         /// 显示帮助信息
         /// </summary>
         private static void PrintHelp()
@@ -241,6 +268,7 @@ namespace LinceMultipleLovers.Patches
             Print("=== LinceMultipleLovers 控制台命令 ===");
             Print("LINCE LOVER <角色ID>  - 将指定角色设为恋人");
             Print("LINCE BREAK <角色ID>  - 与指定角色分手(变为熟人，清除历史恋人记录)");
+            Print("LINCE LOVERID <角色ID> - 将当前活跃恋人切换为指定角色");
         }
 
         /// <summary>
