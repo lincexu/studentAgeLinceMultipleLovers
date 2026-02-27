@@ -12,8 +12,12 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 - ✅ **独立话题系统** - 每个恋人每回合都有独立的话题机会
 - ✅ **恋爱活动** - 可与任意恋人进行看电影、打羽毛球等恋爱活动
 - ✅ **小游戏支持** - 羽毛球、画画等小游戏支持多恋人
-- ✅ **条件判断** - 事件条件正确识别所有恋人
+- ✅ **条件判断** - 事件条件正确识别所有恋人（ConditionerLove / ConditionerLove2）
 - ✅ **社交面板** - 社交容量面板正确显示所有恋人关系
+- ✅ **毕业分享页面** - 恋人栏支持左右切换按钮浏览多个恋人，至交栏正常显示
+- ✅ **强制单身判定** - 可配置主角始终判定为单身（用于触发单身相关事件）
+- ✅ **强制无恋爱经历** - 可配置始终判定无恋爱经历（condition [11,3] 强制返回true）
+- ✅ **控制台命令** - 支持LINCE系列调试命令（添加/移除恋人、设置loverId等）
 - ✅ **存档兼容** - 完全兼容原版存档格式
 
 ## 安装方法
@@ -39,45 +43,54 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 
 ## 配置说明
 
-配置文件位置：`BepInEx/config/LinceMultipleLovers.cfg`
+配置文件位置：`BepInEx/config/lince.multiplelovers.cfg`
 
-```ini
-[General]
-## 启用多恋人系统
-# 设置类型: Boolean
-# 默认值: true
-EnableMultipleLovers = true
+| 分类 | 配置项 | 默认值 | 说明 |
+|------|--------|--------|------|
+| 通用设置 | 启用多恋人功能 | 开 | 允许同时拥有多个恋人 |
+| 通用设置 | 绕过单身检查 | 开 | 允许在已有恋人的情况下继续告白 |
+| 通用设置 | 主角始终判定为单身 | 关 | 强制单身判定（用于调试或特殊玩法） |
+| 通用设置 | 允许恋爱活动 | 开 | 即使开启强制单身，也允许恋爱活动触发（用于任务推进） |
+| 通用设置 | 强制无恋爱经历 | 关 | 开启时condition [11,3]始终返回true，关闭时正常验证historyLover |
+| 调试设置 | 启用调试日志 | 关 | 启用调试日志输出 |
 
-## 调试模式（输出详细日志）
-# 设置类型: Boolean
-# 默认值: false
-DebugMode = false
-```
+> 💡 可在游戏中按 **F1** 打开BepInEx配置管理器实时修改（需安装ConfigurationManager插件）
 
-## 调试命令（暂不支持）
+## 控制台命令
 
-在游戏中启动 `控制台` 打开聊天框，输入以下命令：
+在游戏中按 **`~`** 键打开控制台，输入以下命令：
 
 | 命令 | 功能 |
 |------|------|
-| `/multilover list` | 列出所有恋人 |
-| `/multilover add <npcId>` | 添加指定NPC为恋人 |
-| `/multilover remove <npcId>` | 移除指定恋人 |
-| `/multilover clear` | 清除所有恋人 |
-| `/multilover sync` | 同步数据 |
+| `LINCE HELP` | 显示所有可用命令 |
+| `LINCE LOVER <npcId>` | 使用游戏原生效果将指定NPC设为恋人（等效于effect [20,2,npcId,520]） |
+| `LINCE BREAK <npcId>` | 与指定NPC分手，关系变为相识 |
+| `LINCE LOVERID <id>` | 直接设置当前loverId（0=清除） |
+
+> 命令不区分大小写。NPC ID可在调试日志或游戏数据中查找。
 
 ## 技术细节
 
 ### 核心实现
 
-本Mod使用 Harmony 框架对游戏进行补丁，主要修改以下类：
+本Mod使用 Harmony 框架对游戏进行运行时补丁，主要修改以下类：
 
-- `LoveData` - 扩展恋人数据存储
-- `Role` - 修改关系判断逻辑
-- `MapRoleView` - 修复社交页面显示
-- `ConditionerLove` - 支持多恋人条件判断
-- `ActionData` - 修复恋爱活动
-- `QuickSocialView` - 修复社交容量面板
+| 补丁类 | 目标类 | 功能 |
+|--------|--------|------|
+| LoveDataPatch | LoveData | 扩展恋人数据存储，支持多恋人 |
+| RolePatch | Role | 修改关系判断逻辑 |
+| MapRoleViewPatch | MapRoleView | 修复社交页面显示 |
+| MapRoleViewTopicPatch | MapRoleView | 多恋人独立话题支持 |
+| ConditionerLovePatch | ConditionerLove | 多恋人条件判断 + 强制无恋爱经历 |
+| ConditionerLove2Patch | ConditionerLove2 | 多恋人条件判断 + 强制单身 |
+| ActionDataPatch | ActionData | 修复恋爱活动解锁 |
+| ActionUnlockPatch | ActionData | 行动解锁上下文管理 |
+| MiniGamePatch | 各小游戏类 | 羽毛球、画画等小游戏支持 |
+| QuickSocialViewPatch | QuickSocialView | 社交容量面板修复 |
+| RelationDataPatch | RelationData | 关系数据扩展 |
+| ShareViewPatch | ShareView | 毕业分享页面多恋人切换 |
+| ConsoleCommandPatch | DebugMgr | LINCE控制台命令 |
+| LoveDataSocialTopicPatch | LoveData | 恋人话题系统 |
 
 ### 数据存储
 
@@ -128,21 +141,27 @@ dotnet build
 
 ```
 linceMultipleLovers/
-├── LinceMultipleLoversPlugin.cs    # 主插件类
+├── LinceMultipleLoversPlugin.cs    # 主插件类，Harmony补丁注册
 ├── LoverIdInterceptor.cs           # 恋人ID管理
 ├── LastInteractedLover.cs          # 最近交互记录
+├── ActionUnlockContext.cs          # 行动解锁上下文管理
 ├── ModConfig.cs                    # 配置管理
 ├── DebugCommands.cs                # 调试命令
 ├── Patches/                        # Harmony补丁
-│   ├── LoveDataPatch.cs
-│   ├── RolePatch.cs
-│   ├── MapRoleViewPatch.cs
-│   ├── MapRoleViewTopicPatch.cs
-│   ├── QuickSocialViewPatch.cs
-│   ├── ConditionerLovePatch.cs
-│   ├── ActionDataPatch.cs
-│   ├── MiniGamePatch.cs
-│   └── LoveDataSocialTopicPatch.cs
+│   ├── LoveDataPatch.cs            # 恋人数据扩展
+│   ├── RolePatch.cs                # 角色关系判断
+│   ├── MapRoleViewPatch.cs         # 社交页面修复
+│   ├── MapRoleViewTopicPatch.cs    # 话题系统支持
+│   ├── QuickSocialViewPatch.cs     # 社交容量面板
+│   ├── ConditionerLovePatch.cs     # 恋爱条件判断 + 强制无恋爱经历
+│   ├── ConditionerLove2Patch.cs    # 恋爱条件判断2 + 强制单身
+│   ├── ActionDataPatch.cs          # 恋爱活动修复
+│   ├── ActionUnlockPatch.cs        # 行动解锁补丁
+│   ├── MiniGamePatch.cs            # 小游戏支持
+│   ├── RelationDataPatch.cs        # 关系数据扩展
+│   ├── ShareViewPatch.cs           # 毕业分享页面
+│   ├── ConsoleCommandPatch.cs      # 控制台命令
+│   └── LoveDataSocialTopicPatch.cs # 话题数据管理
 ├── COMPATIBILITY.md                # 兼容性文档
 ├── README.md                       # 本文件
 └── LinceMultipleLovers.csproj      # 项目文件
@@ -164,11 +183,27 @@ A: 每个恋人每回合只能话题一次（已修改官方底层代码），�
 
 ## 更新日志
 
+### v0.1.3 (2026-02-27)
+- 新增「强制无恋爱经历」配置项（condition [11,3] 始终返回true）
+- 修复 ConditionerLovePatch 反射 bug（subType/childType 为 public 字段，反射用了 NonPublic 标志导致始终为0）
+- 修复毕业分享页面至交栏显示为空的问题（ShareUI 公有字段改为直接访问）
+- 修复分享页面刷新按钮与名字文字重叠（按钮位置调整）
+- 新增 LINCE LOVERID 控制台命令
+- LINCE LOVER 命令改用游戏原生 ChangeRelation(npcId, 520) 逻辑
+
+### v0.1.2 (2026-02-20)
+- 新增「主角始终判定为单身」配置项
+- 新增「允许恋爱活动」配置项（强制单身下仍可触发恋爱活动）
+- 新增 ConditionerLove2Patch 支持多恋人条件判断
+- 新增 ActionUnlockPatch 行动解锁上下文管理
+- 新增 RelationDataPatch 关系数据扩展
+- 新增 ShareViewPatch 毕业分享页面多恋人切换
+- 新增 ConsoleCommandPatch 控制台命令（LINCE LOVER / BREAK）
+
 ### v0.1.0 (2026-02-12)
 - 初始版本发布
 - 实现多恋人核心功能
 - 支持话题、活动、小游戏
-- 添加调试命令
 
 ## 贡献指南
 
