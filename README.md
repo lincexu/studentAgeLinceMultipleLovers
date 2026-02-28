@@ -63,11 +63,17 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 | 命令 | 功能 |
 |------|------|
 | `LINCE HELP` | 显示所有可用命令 |
+| `LINCE CLEAR` | 清空控制台记录 |
 | `LINCE LOVER <npcId>` | 使用游戏原生效果将指定NPC设为恋人（等效于effect [20,2,npcId,520]） |
 | `LINCE BREAK <npcId>` | 与指定NPC分手，关系变为相识 |
 | `LINCE LOVERID <id>` | 直接设置当前loverId（0=清除） |
+| `LINCE ADDFOLLOW <数量>` | 增加关注上限（等效effect [20,92,X]） |
+| `LINCE NPC` | 显示所有角色ID和名称 |
+| `LINCE NPC ID <id>` | 查询指定ID的角色名称 |
+| `LINCE NPC NAME <名字>` | 模糊搜索角色名称，显示匹配的角色ID |
+| `LINCE RESOCIAL` | 刷新所有角色社交事件（重新检测可触发事件） |
 
-> 命令不区分大小写。NPC ID可在调试日志或游戏数据中查找。
+> 命令不区分大小写。NPC ID可通过 `LINCE NPC` 命令查询。命令系统采用注册表模式，HELP命令自动显示所有已注册命令。
 
 ## 技术细节
 
@@ -183,12 +189,18 @@ A: 每个恋人每回合只能话题一次（已修改官方底层代码），�
 
 ## 更新日志
 
-### v0.1.3 (2026-02-27)
+### v0.1.3 (2026-02-28)
 - 新增「强制无恋爱经历」配置项（condition [11,3] 始终返回true）
 - 修复 ConditionerLovePatch 反射 bug（subType/childType 为 public 字段，反射用了 NonPublic 标志导致始终为0）
 - 修复毕业分享页面至交栏显示为空的问题（ShareUI 公有字段改为直接访问）
 - 修复分享页面刷新按钮与名字文字重叠（按钮位置调整）
-- 新增 LINCE LOVERID 控制台命令
+- 控制台命令系统重构为注册表模式，新增命令自动出现在HELP列表中
+- 新增 LINCE HELP 命令（自动列出所有已注册命令）
+- 新增 LINCE CLEAR 命令（清空控制台记录）
+- 新增 LINCE LOVERID 命令（直接设置loverId）
+- 新增 LINCE ADDFOLLOW 命令（增加关注上限，等效effect [20,92,X]）
+- 新增 LINCE NPC 命令（查询角色ID/名称，支持模糊搜索）
+- 新增 LINCE RESOCIAL 命令（刷新所有角色社交事件）
 - LINCE LOVER 命令改用游戏原生 ChangeRelation(npcId, 520) 逻辑
 
 ### v0.1.2 (2026-02-20)

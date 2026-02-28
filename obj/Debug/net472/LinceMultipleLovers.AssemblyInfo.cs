@@ -13,11 +13,11 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Lince")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("多恋人Mod - 允许同时拥有多个恋人")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.2+4083367dc726d8abd33f42845cdf59a929c7c963")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.2.1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.2.1+a3c1b18104583a19fa03a1630042bf4d5b095105")]
 [assembly: System.Reflection.AssemblyProductAttribute("LinceMultipleLovers")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LinceMultipleLovers")]
-[assembly: System.Reflection.AssemblyVersionAttribute("0.1.2.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("0.1.2.1")]
 
 // 由 MSBuild WriteCodeFragment 类生成。
 

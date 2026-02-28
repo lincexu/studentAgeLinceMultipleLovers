@@ -1,20 +1,81 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Config;
 using Sdk;
 using TheEntity;
+using UnityEngine.UI;
 
 namespace LinceMultipleLovers.Patches
 {
     /// <summary>
     /// 控制台命令补丁 - 拦截 DebugMgr.InputConsole，支持 LINCE 前缀命令
-    /// 命令格式:
-    ///   LINCE LOVER 角色ID  —— 通过Mod告白系统将指定角色添加为恋人
-    ///   LINCE BREAK 角色ID  —— 与指定角色分手，变为熟人并清除历史恋人记录
+    /// 使用命令注册表模式，新增命令只需在 RegisterCommands() 中注册即可
     /// </summary>
     [HarmonyPatch(typeof(DebugMgr), nameof(DebugMgr.InputConsole))]
     public static class ConsoleCommandPatch
     {
+        /// <summary>
+        /// 命令注册项
+        /// </summary>
+        private class CommandEntry
+        {
+            public string Name { get; set; }
+            public string Usage { get; set; }
+            public string Description { get; set; }
+            public Action<string[]> Handler { get; set; }
+        }
+
+        /// <summary>
+        /// 命令注册表（大写命令名 → 命令项）
+        /// </summary>
+        private static readonly Dictionary<string, CommandEntry> Commands = new Dictionary<string, CommandEntry>();
+
+        /// <summary>
+        /// 保持插入顺序的命令列表（用于HELP显示）
+        /// </summary>
+        private static readonly List<CommandEntry> CommandList = new List<CommandEntry>();
+
+        /// <summary>
+        /// 静态构造函数 - 注册所有命令
+        /// </summary>
+        static ConsoleCommandPatch()
+        {
+            RegisterCommands();
+        }
+
+        /// <summary>
+        /// 注册所有命令。新增命令只需在此处添加 Register() 调用
+        /// </summary>
+        private static void RegisterCommands()
+        {
+            Register("HELP",      "LINCE HELP",                "显示所有可用命令",            HandleHelpCommand);
+            Register("CLEAR",     "LINCE CLEAR",               "清空控制台记录",              HandleClearCommand);
+            Register("LOVER",     "LINCE LOVER <角色ID>",       "将指定角色设为恋人",          HandleLoverCommand);
+            Register("BREAK",     "LINCE BREAK <角色ID>",       "与指定角色分手(变为熟人)",     HandleBreakCommand);
+            Register("LOVERID",   "LINCE LOVERID <角色ID>",     "将当前活跃恋人切换为指定角色", HandleLoverIdCommand);
+            Register("ADDFOLLOW", "LINCE ADDFOLLOW <数量>",     "增加关注上限 (等效effect [20,92,X])", HandleAddFollowCommand);
+            Register("NPC",       "LINCE NPC [ID|NAME] [参数]", "查询角色信息",                HandleNpcCommand);
+            Register("RESOCIAL",  "LINCE RESOCIAL",            "刷新所有角色社交事件(重新检测可触发事件)", HandleResocialCommand);
+        }
+
+        /// <summary>
+        /// 注册一个命令
+        /// </summary>
+        private static void Register(string name, string usage, string description, Action<string[]> handler)
+        {
+            var entry = new CommandEntry
+            {
+                Name = name.ToUpperInvariant(),
+                Usage = usage,
+                Description = description,
+                Handler = handler
+            };
+            Commands[entry.Name] = entry;
+            CommandList.Add(entry);
+        }
+
         /// <summary>
         /// 拦截 InputConsole，优先处理 LINCE 命令
         /// </summary>
@@ -22,39 +83,30 @@ namespace LinceMultipleLovers.Patches
         public static bool Prefix(string[] parms)
         {
             if (parms == null || parms.Length == 0)
-                return true; // 执行原方法
+                return true;
 
-            // 只拦截 LINCE 开头的命令（不区分大小写）
             if (!string.Equals(parms[0], "LINCE", StringComparison.OrdinalIgnoreCase))
-                return true; // 不是我们的命令，执行原方法
+                return true;
 
-            // 至少需要 LINCE + 子命令
             if (parms.Length < 2)
             {
-                PrintHelp();
-                return false; // 跳过原方法
+                HandleHelpCommand(parms);
+                return false;
             }
 
             string subCommand = parms[1].ToUpperInvariant();
 
-            switch (subCommand)
+            if (Commands.TryGetValue(subCommand, out var cmd))
             {
-                case "LOVER":
-                    HandleLoverCommand(parms);
-                    break;
-                case "BREAK":
-                    HandleBreakCommand(parms);
-                    break;
-                case "LOVERID":
-                    HandleLoverIdCommand(parms);
-                    break;
-                default:
-                    PrintError($"未知子命令: {parms[1]}");
-                    PrintHelp();
-                    break;
+                cmd.Handler(parms);
+            }
+            else
+            {
+                PrintError($"未知子命令: {parms[1]}");
+                HandleHelpCommand(parms);
             }
 
-            return false; // 跳过原方法
+            return false;
         }
 
         /// <summary>
@@ -261,14 +313,195 @@ namespace LinceMultipleLovers.Patches
         }
 
         /// <summary>
-        /// 显示帮助信息
+        /// LINCE ADDFOLLOW 数字 - 增加关注上限
+        /// 等效于 effect [20, 92, X]，即 RelationData.enableFocusCnt += X
         /// </summary>
-        private static void PrintHelp()
+        private static void HandleAddFollowCommand(string[] parms)
+        {
+            if (parms.Length < 3)
+            {
+                PrintError("用法: LINCE ADDFOLLOW <数量>");
+                return;
+            }
+
+            if (!int.TryParse(parms[2], out int amount) || amount == 0)
+            {
+                PrintError($"无效的数量: {parms[2]}");
+                return;
+            }
+
+            if (Singleton<RoleMgr>.Ins == null)
+            {
+                PrintError("存档未加载，请先进入游戏");
+                return;
+            }
+
+            var relationData = Singleton<RoleMgr>.Ins.GetRelationData(true);
+            int oldCnt = relationData.enableFocusCnt;
+            relationData.enableFocusCnt += amount;
+            int newCnt = relationData.enableFocusCnt;
+
+            Print($"关注上限: {oldCnt} → {newCnt} (变化{(amount > 0 ? "+" : "")}{amount})");
+        }
+
+        /// <summary>
+        /// LINCE NPC - 查询角色信息
+        /// LINCE NPC       - 显示所有角色ID和姓名
+        /// LINCE NPC ID X  - 显示指定ID的角色名称
+        /// LINCE NPC NAME X - 显示指定名称的角色ID
+        /// </summary>
+        private static void HandleNpcCommand(string[] parms)
+        {
+            if (Cfg.PersonCfgMap == null || Cfg.PersonCfgMap.Count == 0)
+            {
+                PrintError("角色配置未加载");
+                return;
+            }
+
+            // LINCE NPC - 显示所有角色
+            if (parms.Length <= 2)
+            {
+                Print($"=== 所有角色 (共{Cfg.PersonCfgMap.Count}个) ===");
+                var sorted = Cfg.PersonCfgMap.OrderBy(kv => kv.Key);
+                foreach (var kv in sorted)
+                {
+                    Print($"  ID: {kv.Key}  名称: {kv.Value.name}");
+                }
+                return;
+            }
+
+            string subCmd = parms[2].ToUpperInvariant();
+
+            // LINCE NPC ID <数字>
+            if (subCmd == "ID")
+            {
+                if (parms.Length < 4)
+                {
+                    PrintError("用法: LINCE NPC ID <角色ID>");
+                    return;
+                }
+                if (!int.TryParse(parms[3], out int npcId))
+                {
+                    PrintError($"无效的ID: {parms[3]}");
+                    return;
+                }
+                if (Cfg.PersonCfgMap.TryGetValue(npcId, out var cfg))
+                {
+                    Print($"ID: {npcId}  名称: {cfg.name}");
+                }
+                else
+                {
+                    PrintError($"找不到ID为 {npcId} 的角色");
+                }
+                return;
+            }
+
+            // LINCE NPC NAME <名字>
+            if (subCmd == "NAME")
+            {
+                if (parms.Length < 4)
+                {
+                    PrintError("用法: LINCE NPC NAME <角色名字>");
+                    return;
+                }
+                string searchName = parms[3];
+                var matches = Cfg.PersonCfgMap
+                    .Where(kv => kv.Value.name != null && kv.Value.name.Contains(searchName))
+                    .OrderBy(kv => kv.Key)
+                    .ToList();
+
+                if (matches.Count == 0)
+                {
+                    PrintError($"找不到名称包含 \"{searchName}\" 的角色");
+                }
+                else
+                {
+                    Print($"=== 搜索结果 (共{matches.Count}个) ===");
+                    foreach (var kv in matches)
+                    {
+                        Print($"  ID: {kv.Key}  名称: {kv.Value.name}");
+                    }
+                }
+                return;
+            }
+
+            PrintError($"未知NPC子命令: {parms[2]}");
+            Print("用法: LINCE NPC / LINCE NPC ID <ID> / LINCE NPC NAME <名字>");
+        }
+
+        /// <summary>
+        /// LINCE HELP - 显示所有已注册的命令
+        /// </summary>
+        private static void HandleHelpCommand(string[] parms)
         {
             Print("=== LinceMultipleLovers 控制台命令 ===");
-            Print("LINCE LOVER <角色ID>  - 将指定角色设为恋人");
-            Print("LINCE BREAK <角色ID>  - 与指定角色分手(变为熟人，清除历史恋人记录)");
-            Print("LINCE LOVERID <角色ID> - 将当前活跃恋人切换为指定角色");
+            foreach (var cmd in CommandList)
+            {
+                Print($"  {cmd.Usage}  - {cmd.Description}");
+            }
+        }
+
+        /// <summary>
+        /// LINCE CLEAR - 清空控制台记录
+        /// </summary>
+        private static void HandleClearCommand(string[] parms)
+        {
+            var viewField = typeof(DebugMgr).GetField("view",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var view = viewField?.GetValue(DebugMgr.Ins) as DebugView;
+
+            if (view != null && view.txt_console_visable != null)
+            {
+                view.txt_console_visable.text = "";
+                LinceMultipleLoversPlugin.Log.LogInfo("[Console] 控制台已清空");
+            }
+            else
+            {
+                PrintError("无法访问控制台视图");
+            }
+        }
+
+        /// <summary>
+        /// LINCE RESOCIAL - 刷新所有角色的社交事件和恋爱社交事件
+        /// 重新调用 CheckSocialEvt() 和 CheckLoveSocialEvt()，等同于新回合开始时的检测
+        /// </summary>
+        private static void HandleResocialCommand(string[] parms)
+        {
+            if (Singleton<RoleMgr>.Ins == null)
+            {
+                PrintError("存档未加载，请先进入游戏");
+                return;
+            }
+
+            var roleDict = Singleton<RoleMgr>.Ins.GetRoleDict();
+            if (roleDict == null || roleDict.Count == 0)
+            {
+                PrintError("角色列表为空");
+                return;
+            }
+
+            int socialCount = 0;
+            int loveCount = 0;
+
+            foreach (var kv in roleDict)
+            {
+                Role role = kv.Value;
+                if (role == null || role.isLeave || role.Relation < 1)
+                    continue;
+
+                role.CheckSocialEvt();
+                role.CheckLoveSocialEvt();
+
+                if (role.socialEvtId > 0)
+                    socialCount++;
+                if (role.loveSocialEvtId > 0)
+                    loveCount++;
+            }
+
+            // 刷新社交红点
+            Singleton<RoleMgr>.Ins.GetRelationData(true).CheckSocialEvtRedpoint();
+
+            Print($"社交事件已刷新: {socialCount}个社交事件, {loveCount}个恋爱社交事件");
         }
 
         /// <summary>
