@@ -13,6 +13,12 @@ namespace LinceMultipleLovers
     public static class LoverIdInterceptor
     {
         /// <summary>
+        /// loverId锁定标志。锁定后，自动切换loverId的补丁将被跳过。
+        /// 通过 LINCE LOVERID LOCK/UNLOCK 控制。
+        /// </summary>
+        public static bool LoverIdLocked { get; set; } = false;
+
+        /// <summary>
         /// 从游戏的LoveData中获取historyLoverIds
         /// </summary>
         private static List<int> GetHistoryLoverIds()

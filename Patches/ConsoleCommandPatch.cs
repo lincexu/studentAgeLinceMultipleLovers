@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Config;
+using Effect;
 using Sdk;
 using TheEntity;
 using UnityEngine.UI;
@@ -54,7 +55,8 @@ namespace LinceMultipleLovers.Patches
             Register("CLEAR",     "LINCE CLEAR",               "清空控制台记录",              HandleClearCommand);
             Register("LOVER",     "LINCE LOVER <角色ID>",       "将指定角色设为恋人",          HandleLoverCommand);
             Register("BREAK",     "LINCE BREAK <角色ID>",       "与指定角色分手(变为熟人)",     HandleBreakCommand);
-            Register("LOVERID",   "LINCE LOVERID <角色ID>",     "将当前活跃恋人切换为指定角色", HandleLoverIdCommand);
+            Register("LOVERID",   "LINCE LOVERID <角色ID|LOCK|UNLOCK>", "切换/锁定/解锁当前活跃恋人", HandleLoverIdCommand);
+            Register("EFFECT",    "LINCE EFFECT <type,sub,...>", "手动执行effect指令 (如: 60,2,3001)", HandleEffectCommand);
             Register("ADDFOLLOW", "LINCE ADDFOLLOW <数量>",     "增加关注上限 (等效effect [20,92,X])", HandleAddFollowCommand);
             Register("NPC",       "LINCE NPC [ID|NAME] [参数]", "查询角色信息",                HandleNpcCommand);
             Register("RESOCIAL",  "LINCE RESOCIAL",            "刷新所有角色社交事件(重新检测可触发事件)", HandleResocialCommand);
@@ -267,19 +269,57 @@ namespace LinceMultipleLovers.Patches
         }
 
         /// <summary>
-        /// LINCE LOVERID 角色ID - 将loverId直接设定为指定角色
+        /// LINCE LOVERID <角色ID|LOCK|UNLOCK>
+        /// - LINCE LOVERID 角色ID   → 将loverId切换为指定角色
+        /// - LINCE LOVERID LOCK     → 锁定当前loverId，阻止自动切换
+        /// - LINCE LOVERID UNLOCK   → 解除锁定
         /// </summary>
         private static void HandleLoverIdCommand(string[] parms)
         {
             if (parms.Length < 3)
             {
-                PrintError("用法: LINCE LOVERID <角色ID>");
+                // 无参数时显示当前状态
+                if (Singleton<RoleMgr>.Ins == null)
+                {
+                    PrintError("存档未加载，请先进入游戏");
+                    return;
+                }
+                var ld = Singleton<RoleMgr>.Ins.GetLoveData();
+                string curName = ld.loverId > 0 ? (Singleton<RoleMgr>.Ins.GetRole(ld.loverId)?.Name ?? "未知") : "无";
+                Print($"当前loverId: {curName}({ld.loverId}), 锁定状态: {(LoverIdInterceptor.LoverIdLocked ? "已锁定" : "未锁定")}");
+                Print("用法: LINCE LOVERID <角色ID|LOCK|UNLOCK>");
                 return;
             }
 
+            string arg = parms[2].ToUpperInvariant();
+
+            // LOCK 子命令
+            if (arg == "LOCK")
+            {
+                if (Singleton<RoleMgr>.Ins == null)
+                {
+                    PrintError("存档未加载，请先进入游戏");
+                    return;
+                }
+                LoverIdInterceptor.LoverIdLocked = true;
+                var ld = Singleton<RoleMgr>.Ins.GetLoveData();
+                string curName = ld.loverId > 0 ? (Singleton<RoleMgr>.Ins.GetRole(ld.loverId)?.Name ?? "未知") : "无";
+                Print($"已锁定当前loverId: {curName}({ld.loverId})，恋人ID不再自动切换");
+                return;
+            }
+
+            // UNLOCK 子命令
+            if (arg == "UNLOCK")
+            {
+                LoverIdInterceptor.LoverIdLocked = false;
+                Print("已解锁loverId，恋人ID将恢复自动切换");
+                return;
+            }
+
+            // 数字参数 → 切换loverId
             if (!int.TryParse(parms[2], out int npcId) || npcId <= 0)
             {
-                PrintError($"无效的角色ID: {parms[2]}");
+                PrintError($"无效的参数: {parms[2]}  (用法: LINCE LOVERID <角色ID|LOCK|UNLOCK>)");
                 return;
             }
 
@@ -310,6 +350,79 @@ namespace LinceMultipleLovers.Patches
 
             var allLovers = LoverIdInterceptor.GetAllLoverIds();
             Print($"当前恋人列表: {FormatLoverList(allLovers)}");
+            if (LoverIdInterceptor.LoverIdLocked)
+            {
+                Print("注意: loverId当前已锁定，不会自动切换");
+            }
+        }
+
+        /// <summary>
+        /// LINCE EFFECT type,sub,... - 手动执行effect指令
+        /// 参数以逗号分隔，如: LINCE EFFECT 60,2,3001
+        /// 等效于游戏内控制台的 1701 命令
+        /// </summary>
+        private static void HandleEffectCommand(string[] parms)
+        {
+            if (parms.Length < 3)
+            {
+                PrintError("用法: LINCE EFFECT <type,sub,...>  例: LINCE EFFECT 60,2,3001");
+                return;
+            }
+
+            if (Singleton<RoleMgr>.Ins == null)
+            {
+                PrintError("存档未加载，请先进入游戏");
+                return;
+            }
+
+            // 将第3个参数按逗号拆分为浮点数列表
+            string effectStr = parms[2];
+            string[] parts = effectStr.Split(',');
+            var effectList = new List<float>();
+
+            foreach (string part in parts)
+            {
+                string trimmed = part.Trim();
+                if (!float.TryParse(trimmed, out float val))
+                {
+                    PrintError($"无效的参数值: {trimmed}  (所有参数必须为数字，以逗号分隔)");
+                    return;
+                }
+                effectList.Add(val);
+            }
+
+            if (effectList.Count == 0)
+            {
+                PrintError("effect参数不能为空");
+                return;
+            }
+
+            // 使用游戏原生的effect执行逻辑（与ConsoleCodeMgr中1701命令相同）
+            try
+            {
+                var effector = CommonEvtMgr.GenEffector(effectList, null, 0, 0);
+                if (effector != null)
+                {
+                    effector.SetTag("LINCE_EFFECT");
+                    effector.SetIsInc(true);
+                    effector.Run(1f, false);
+
+                    // 输出生成的increaser uid
+                    var uids = effector.GetBaseIncreaserUids();
+                    string uidStr = uids != null && uids.Count > 0
+                        ? string.Join(", ", uids)
+                        : "无";
+                    Print($"Effect [{effectStr}] 执行成功, UIDs: {uidStr}");
+                }
+                else
+                {
+                    PrintError($"Effect [{effectStr}] 创建失败: GenEffector返回null");
+                }
+            }
+            catch (Exception ex)
+            {
+                PrintError($"Effect [{effectStr}] 执行异常: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -17,7 +17,10 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 - ✅ **毕业分享页面** - 恋人栏支持左右切换按钮浏览多个恋人，至交栏正常显示
 - ✅ **强制单身判定** - 可配置主角始终判定为单身（用于触发单身相关事件）
 - ✅ **强制无恋爱经历** - 可配置始终判定无恋爱经历（condition [11,3] 强制返回true）
-- ✅ **控制台命令** - 支持LINCE系列调试命令（添加/移除恋人、设置loverId等）
+- ✅ **控制台命令** - 支持LINCE系列调试命令（添加/移除恋人、设置loverId、执行effect等）
+- ✅ **恋人特性适配** - IncreaserOther中loverId相关效果遍历所有恋人生效
+- ✅ **好友特性倍率适配** - 陪伴人生观「亲密度→特性加成」对所有恋人生效
+- ✅ **loverId锁定** - 可锁定当前活跃恋人，阻止自动切换
 - ✅ **存档兼容** - 完全兼容原版存档格式
 
 ## 安装方法
@@ -66,7 +69,10 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 | `LINCE CLEAR` | 清空控制台记录 |
 | `LINCE LOVER <npcId>` | 使用游戏原生效果将指定NPC设为恋人（等效于effect [20,2,npcId,520]） |
 | `LINCE BREAK <npcId>` | 与指定NPC分手，关系变为相识 |
-| `LINCE LOVERID <id>` | 直接设置当前loverId（0=清除） |
+| `LINCE LOVERID <角色ID>` | 切换当前活跃恋人为指定角色 |
+| `LINCE LOVERID LOCK` | 锁定当前loverId，阻止自动切换 |
+| `LINCE LOVERID UNLOCK` | 解除loverId锁定 |
+| `LINCE EFFECT <type,sub,...>` | 手动执行effect指令（如: `LINCE EFFECT 60,2,3001`） |
 | `LINCE ADDFOLLOW <数量>` | 增加关注上限（等效effect [20,92,X]） |
 | `LINCE NPC` | 显示所有角色ID和名称 |
 | `LINCE NPC ID <id>` | 查询指定ID的角色名称 |
@@ -96,6 +102,9 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 | RelationDataPatch | RelationData | 关系数据扩展 |
 | ShareViewPatch | ShareView | 毕业分享页面多恋人切换 |
 | ConsoleCommandPatch | DebugMgr | LINCE控制台命令 |
+| ConsoleHistoryPatch | DebugMgr | 控制台历史记录 |
+| IncreaserOtherPatch | IncreaserOther | 恋人相关增益多恋人适配（3003/3910/3913/9） |
+| RoleMgrPatch | RoleMgr | 好友特性倍率(10001)亲密度加成多恋人适配 |
 | LoveDataSocialTopicPatch | LoveData | 恋人话题系统 |
 
 ### 数据存储
@@ -167,6 +176,9 @@ linceMultipleLovers/
 │   ├── RelationDataPatch.cs        # 关系数据扩展
 │   ├── ShareViewPatch.cs           # 毕业分享页面
 │   ├── ConsoleCommandPatch.cs      # 控制台命令
+│   ├── ConsoleHistoryPatch.cs      # 控制台历史记录
+│   ├── IncreaserOtherPatch.cs      # 恋人增益多恋人适配
+│   ├── RoleMgrPatch.cs             # 好友特性倍率多恋人适配
 │   └── LoveDataSocialTopicPatch.cs # 话题数据管理
 ├── COMPATIBILITY.md                # 兼容性文档
 ├── README.md                       # 本文件
@@ -188,6 +200,14 @@ A: 正常进行游戏，告白成功后自动添加到恋人列表。
 A: 每个恋人每回合只能话题一次（已修改官方底层代码），请检查是否已话题过。
 
 ## 更新日志
+
+### v0.1.3.2 (2026-03-03)
+- 新增 IncreaserOtherPatch：otherAttrId 3003（恋人最高属性匹配）、3910/3913（单身判定）、9（有无恋人分支）遍历所有恋人生效
+- 新增 RoleMgrPatch：GetRateType case 10001（好友特性倍率）的亲密度加成(3002)对所有恋人生效（陪伴人生观第5级效果适配）
+- 新增 LINCE EFFECT 命令：手动输入effect参数直接执行（如 `LINCE EFFECT 60,2,3001`）
+- 优化 LINCE LOVERID 命令：新增 LOCK/UNLOCK 子命令，可锁定当前loverId阻止自动切换
+- loverId锁定时 MapRoleViewPatch、MapRoleViewTopicPatch、QuickSocialViewPatch 不再自动切换
+- LoverIdInterceptor 新增 LoverIdLocked 属性
 
 ### v0.1.3 (2026-02-28)
 - 新增「强制无恋爱经历」配置项（condition [11,3] 始终返回true）

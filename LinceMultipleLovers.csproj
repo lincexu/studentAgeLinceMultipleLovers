@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>LinceMultipleLovers</AssemblyName>
-    <Version>0.1.3</Version>
+    <Version>0.1.3.2</Version>
     <Authors>Lince</Authors>
     <Description>多恋人Mod - 允许同时拥有多个恋人</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -53,6 +53,10 @@
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>E:\steam\steamapps\common\StudentAge\StudentAge_Data\Managed\Unity.InputSystem.dll</HintPath>
       <Private>false</Private>
     </Reference>
     

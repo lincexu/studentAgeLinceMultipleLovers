@@ -462,6 +462,99 @@ namespace LinceMultipleLovers
                     Log.LogError($"应用ConsoleCommandPatch补丁失败: {ex}");
                 }
 
+                // 应用ConsoleHistoryPatch - 控制台命令历史浏览（上/下方向键）
+                Log.LogInfo("正在应用ConsoleHistory补丁...");
+                try
+                {
+                    var debugViewType = typeof(DebugView);
+                    var updateMethod = debugViewType.GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (updateMethod != null)
+                    {
+                        Harmony.Patch(updateMethod,
+                            postfix: new HarmonyMethod(typeof(Patches.ConsoleHistoryPatch), nameof(Patches.ConsoleHistoryPatch.Update_Postfix)));
+                        Log.LogInfo("成功应用ConsoleHistoryPatch.Update补丁");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到DebugView.Update方法");
+                    }
+
+                    var acceptInputMethod = debugViewType.GetMethod("AcceptInput");
+                    if (acceptInputMethod != null)
+                    {
+                        Harmony.Patch(acceptInputMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.ConsoleHistoryPatch), nameof(Patches.ConsoleHistoryPatch.AcceptInput_Prefix)));
+                        Log.LogInfo("成功应用ConsoleHistoryPatch.AcceptInput补丁");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到DebugView.AcceptInput方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用ConsoleHistoryPatch补丁失败: {ex}");
+                }
+
+                // 应用IncreaserOtherPatch - 多恋人适配：恋人特性效果遍历所有恋人
+                Log.LogInfo("正在应用IncreaserOther补丁...");
+                try
+                {
+                    var increaserOtherType = typeof(Increase.IncreaserOther);
+                    
+                    // OnGetSelfValue是protected方法，需要通过反射获取
+                    var onGetSelfValueMethod = increaserOtherType.GetMethod("OnGetSelfValue", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (onGetSelfValueMethod != null)
+                    {
+                        Harmony.Patch(onGetSelfValueMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.IncreaserOtherPatch), nameof(Patches.IncreaserOtherPatch.OnGetSelfValue_Prefix)));
+                        Log.LogInfo("成功应用IncreaserOther.OnGetSelfValue补丁");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到IncreaserOther.OnGetSelfValue方法");
+                    }
+
+                    // OnRun也是protected方法
+                    var onRunMethod = increaserOtherType.GetMethod("OnRun", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (onRunMethod != null)
+                    {
+                        Harmony.Patch(onRunMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.IncreaserOtherPatch), nameof(Patches.IncreaserOtherPatch.OnRun_Prefix)));
+                        Log.LogInfo("成功应用IncreaserOther.OnRun补丁");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到IncreaserOther.OnRun方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用IncreaserOtherPatch补丁失败: {ex}");
+                }
+
+                // 应用RoleMgrPatch - 多恋人适配：好友特性倍率(10001)的亲密度加成对所有恋人生效
+                Log.LogInfo("正在应用RoleMgr.GetRateType补丁...");
+                try
+                {
+                    var roleMgrType = typeof(RoleMgr);
+                    var getRateTypeMethod = roleMgrType.GetMethod("GetRateType", BindingFlags.Public | BindingFlags.Instance);
+                    if (getRateTypeMethod != null)
+                    {
+                        Harmony.Patch(getRateTypeMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.RoleMgrPatch), nameof(Patches.RoleMgrPatch.GetRateType_Prefix)));
+                        Log.LogInfo("成功应用RoleMgr.GetRateType补丁");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到RoleMgr.GetRateType方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用RoleMgrPatch补丁失败: {ex}");
+                }
+
                 Log.LogInfo("所有补丁应用完成!");
             }
             catch (Exception ex)
@@ -488,6 +581,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.3";
+        public const string PLUGIN_VERSION = "0.1.3.2";
     }
 }

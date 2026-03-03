@@ -37,6 +37,10 @@ namespace LinceMultipleLovers.Patches
                 var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
                 int originalLoverId = loveData.loverId;
                 
+                // 如果loverId已锁定，跳过自动切换
+                if (LoverIdInterceptor.LoverIdLocked)
+                    return;
+
                 // 直接修改loverId为这个NPC，不再恢复
                 if (originalLoverId != npc.id)
                 {

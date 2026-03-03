@@ -31,6 +31,10 @@ namespace LinceMultipleLovers.Patches
             // 如果这个NPC是恋人之一，临时修改loverId
             if (LoverIdInterceptor.IsLover(num))
             {
+                // 如果loverId已锁定，跳过自动切换
+                if (LoverIdInterceptor.LoverIdLocked)
+                    return;
+
                 var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
                 if (loveData != null && loveData.loverId != num)
                 {

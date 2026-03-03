@@ -55,6 +55,10 @@ namespace LinceMultipleLovers.Patches
                 // 记录当前NPC ID
                 CurrentNpcId = npc.id;
                 
+                // 如果loverId已锁定，跳过自动切换
+                if (LoverIdInterceptor.LoverIdLocked)
+                    return;
+
                 // 直接修改loverId为当前NPC
                 var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
                 if (loveData != null && loveData.loverId != npc.id)
@@ -117,6 +121,10 @@ namespace LinceMultipleLovers.Patches
                 // 记录当前NPC ID
                 CurrentNpcId = npc.id;
                 
+                // 如果loverId已锁定，跳过自动切换
+                if (LoverIdInterceptor.LoverIdLocked)
+                    return;
+
                 // 直接修改loverId为当前NPC
                 var loveData = Singleton<RoleMgr>.Ins.GetLoveData();
                 if (loveData != null && loveData.loverId != npc.id)
