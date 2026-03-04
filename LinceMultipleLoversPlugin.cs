@@ -555,6 +555,60 @@ namespace LinceMultipleLovers
                     Log.LogError($"应用RoleMgrPatch补丁失败: {ex}");
                 }
 
+                // 应用CustomConditionPatch - 自定义条件5207(恋人数量检查)
+                Log.LogInfo("正在应用CustomCondition补丁...");
+                try
+                {
+                    var commonEvtMgrType = typeof(CommonEvtMgr);
+                    var genConditionerMethod = commonEvtMgrType.GetMethod("GenConditioner",
+                        BindingFlags.Public | BindingFlags.Static,
+                        null,
+                        new[] { typeof(List<double>), typeof(Condition.Conditioner) },
+                        null);
+                    if (genConditionerMethod != null)
+                    {
+                        Harmony.Patch(genConditionerMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.CustomConditionPatch),
+                                nameof(Patches.CustomConditionPatch.GenConditioner_Prefix)));
+                        Log.LogInfo("成功应用GenConditioner补丁 (自定义条件5207)");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到CommonEvtMgr.GenConditioner(List<double>, Conditioner)方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用CustomConditionPatch补丁失败: {ex}");
+                }
+
+                // 应用CustomEffectPatch - 自定义效果5217(全恋人好感变更)
+                Log.LogInfo("正在应用CustomEffect补丁...");
+                try
+                {
+                    var commonEvtMgrType2 = typeof(CommonEvtMgr);
+                    var genEffectorMethod = commonEvtMgrType2.GetMethod("GenEffector",
+                        BindingFlags.Public | BindingFlags.Static,
+                        null,
+                        new[] { typeof(List<float>), typeof(Effect.Effector), typeof(int), typeof(int) },
+                        null);
+                    if (genEffectorMethod != null)
+                    {
+                        Harmony.Patch(genEffectorMethod,
+                            prefix: new HarmonyMethod(typeof(Patches.CustomEffectPatch),
+                                nameof(Patches.CustomEffectPatch.GenEffector_Prefix)));
+                        Log.LogInfo("成功应用GenEffector补丁 (自定义效果5217)");
+                    }
+                    else
+                    {
+                        Log.LogError("找不到CommonEvtMgr.GenEffector方法");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"应用CustomEffectPatch补丁失败: {ex}");
+                }
+
                 Log.LogInfo("所有补丁应用完成!");
             }
             catch (Exception ex)
@@ -581,6 +635,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.3.2";
+        public const string PLUGIN_VERSION = "0.1.3.3";
     }
 }

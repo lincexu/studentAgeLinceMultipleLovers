@@ -33,8 +33,16 @@ public class LoveData
 | `MapRoleView` | Harmony Postfix | 修改 `OnCellRender`/`OnCellCreate`，记录当前交互NPC |
 | `QuickSocialView` | Harmony Prefix | 修改 `OnRenderSocial`，社交容量面板显示所有恋人 |
 | `ConditionerLove` | Harmony Prefix | 修改 `OnIsMatch`，条件判断支持多恋人 |
+| `ConditionerLove2` | Harmony Prefix | 修改 `OnIsMatch`/`OnGetProgress`，多恋人条件判断 + 强制单身 |
 | `ActionData` | Harmony Prefix | 修改 `HelpLoveAction`，恋爱活动使用正确的恋人 |
 | `BadmintonMiniGameView` | Harmony Postfix | 记录小游戏对手信息 |
+| `RelationData` | Harmony Prefix/Postfix | 社交容量、关系判断多恋人适配 |
+| `ShareView` | Harmony Prefix | 毕业分享页面多恋人切换 |
+| `DebugMgr` | Harmony Prefix | LINCE控制台命令拦截 |
+| `DebugView` | Harmony Postfix/Prefix | 控制台历史记录浏览 |
+| `IncreaserOther` | Harmony Prefix | 恋人相关增益多恋人适配 (3003/3910/3913/9) |
+| `RoleMgr` | Harmony Prefix | 好友特性倍率(10001)亲密度加成多恋人适配 |
+| `CommonEvtMgr` | Harmony Prefix | 自定义条件5207(恋人数量) + 自定义效果5217(批量好感) |
 
 ### 3. 方法修改详情
 
@@ -108,6 +116,44 @@ public class LoveData
 **方法**: `NewRound_Postfix`
 - **功能**: 新回合重置所有角色话题计数
 
+#### 3.10 IncreaserOtherPatch
+
+**方法**: `OnGetSelfValue_Prefix`
+- **功能**: 拦截 `IncreaserOther.OnGetSelfValue`，对loverId相关的otherAttrId进行多恋人适配
+- **涉及 otherAttrId**:
+  - `3003`: 检查所有恋人的最高属性是否匹配id
+  - `3910`: 有恋人返回0，无恋人返回value
+  - `3913`: 有恋人返回0，无恋人返回记忆数*value
+
+**方法**: `OnRun_Prefix`
+- **功能**: 拦截 `IncreaserOther.OnRun`，对otherAttrId=9的有/无恋人分支进行多恋人适配
+
+#### 3.11 RoleMgrPatch
+
+**方法**: `GetRateType_Prefix`
+- **功能**: 拦截 `RoleMgr.GetRateType` case 10001（好友特性倍率）
+- **原逻辑**: `if (role2.id == loverId)` 才加入亲密度加成(3002)
+- **新逻辑**: `if (allLoverIds.Contains(role2.id))` 任一恋人均可获得加成
+
+#### 3.12 CustomConditionPatch
+
+**方法**: `GenConditioner_Prefix`
+- **功能**: 拦截 `CommonEvtMgr.GenConditioner`，注入自定义条件类型5207
+- **格式**: `[5207, subType, X]`
+  - `subType=1`: 恋人总数 ≥ X 返回true
+  - `subType=-1`: 恋人总数 ≤ X 返回true
+- **实现类**: `CustomConditionerLoverCount` 继承 `Conditioner`
+
+#### 3.13 CustomEffectPatch
+
+**方法**: `GenEffector_Prefix`
+- **功能**: 拦截 `CommonEvtMgr.GenEffector`，注入自定义效果类型5217
+- **格式**: `[5217, 1, X]` 或 `[5217, 1, X, Y]`
+  - 无Y: 除当前loverId外，所有恋人好感 +X
+  - 有Y: 除角色id=Y外，所有恋人好感 +X
+- **实现类**: `CustomEffectorAllLoversFavor` 继承 `Effector`
+- **特性**: 手动复现UpdateFavor逻辑，合并为一条Toast显示
+
 ### 4. 新增类
 
 #### 4.1 LoverIdInterceptor
@@ -119,6 +165,7 @@ public class LoveData
 - `IsLover(int npcId)`: 检查NPC是否是恋人
 - `HasLover()`: 检查是否有任何恋人
 - `GetPrimaryLoverId()`: 获取主恋人ID（列表第一个）
+- `LoverIdLocked`: loverId锁定标志，锁定时阻止自动切换
 
 #### 4.2 LastInteractedLover
 
@@ -147,17 +194,25 @@ EnableMultipleLovers = true  # 启用多恋人系统
 DebugMode = false            # 调试模式（输出详细日志）
 ```
 
-### 6. 调试命令
+### 6. 控制台命令
 
-**命令前缀**: `/multilover`
+**命令前缀**: `LINCE`
 
 | 命令 | 功能 |
 |------|------|
-| `/multilover list` | 列出所有恋人 |
-| `/multilover add <npcId>` | 添加恋人 |
-| `/multilover remove <npcId>` | 移除恋人 |
-| `/multilover clear` | 清除所有恋人 |
-| `/multilover sync` | 同步数据 |
+| `LINCE HELP` | 显示所有可用命令 |
+| `LINCE CLEAR` | 清空控制台记录 |
+| `LINCE LOVER <npcId>` | 将指定NPC设为恋人 |
+| `LINCE BREAK <npcId>` | 与指定NPC分手 |
+| `LINCE LOVERID <角色ID>` | 切换当前活跃恋人 |
+| `LINCE LOVERID LOCK` | 锁定当前loverId，阻止自动切换 |
+| `LINCE LOVERID UNLOCK` | 解除loverId锁定 |
+| `LINCE EFFECT <type,sub,...>` | 手动执行effect指令 |
+| `LINCE ADDFOLLOW <数量>` | 增加关注上限 |
+| `LINCE NPC` | 显示所有角色ID和名称 |
+| `LINCE NPC ID <id>` | 查询指定ID的角色名称 |
+| `LINCE NPC NAME <名字>` | 模糊搜索角色名称 |
+| `LINCE RESOCIAL` | 刷新所有角色社交事件 |
 
 ### 7. 与其他Mod的兼容性
 
@@ -173,7 +228,8 @@ DebugMode = false            # 调试模式（输出详细日志）
 |----------|------|----------|
 | 重复修改 `loverId` | 其他Mod也修改 `loverId` | 确保本插件最后加载 |
 | 直接读取 `loverId` | 其他Mod直接比较 `loverId` | 需要该Mod也支持多恋人 |
-| 存档格式 | 其他Mod修改存档结构 | 本插件使用独立存储，一般兼容 |
+| 关系数据 Mod | 修改 RelationData | 本插件也修改了 RelationData，需测试兼容性 |
+| 条件/效果 Mod | 修改 CommonEvtMgr | 本插件拦截了GenConditioner和GenEffector，仅处理自定义类型(5207/5217)，不影响其他类型 |
 
 #### 7.3 推荐的加载顺序
 

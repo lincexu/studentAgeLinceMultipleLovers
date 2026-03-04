@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>LinceMultipleLovers</AssemblyName>
-    <Version>0.1.3.2</Version>
+    <Version>0.1.3.3</Version>
     <Authors>Lince</Authors>
     <Description>多恋人Mod - 允许同时拥有多个恋人</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
