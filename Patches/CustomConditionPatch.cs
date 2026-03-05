@@ -1,4 +1,5 @@
 using Condition;
+using Config;
 using Sdk;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,8 @@ namespace LinceMultipleLovers.Patches
     ///   [5207, 3, 1, x, y]        — 角色y是第x个恋人（1-based）
     ///   [5207, 3, 2, y]           — 角色y是最后一个恋人
     ///   [5207, 3, 3, x, y]        — 角色x先于角色y成为恋人
+    ///   [5207, 14, 1, id1, id2,…]  — 至少有一个指定角色是恋人
+    ///   [5207, 14, -1, id1, id2,…] — 至少有一个指定角色不是恋人
     /// </summary>
     public static class CustomConditionPatch
     {
@@ -47,6 +50,9 @@ namespace LinceMultipleLovers.Patches
                         break;
                     case 3:
                         newConditioner = new CustomConditionerLoverOrder(_conditioner, _condition);
+                        break;
+                    case 14:
+                        newConditioner = new CustomConditionerLoverAny(_conditioner, _condition);
                         break;
                     default:
                         LinceMultipleLoversPlugin.Log.LogWarning(
@@ -116,11 +122,28 @@ namespace LinceMultipleLovers.Patches
             return result;
         }
 
+        /// <summary>
+        /// 获取角色名称，找不到时回退为ID
+        /// </summary>
+        internal static string GetName(int roleId)
+        {
+            if (roleId <= 0) return roleId.ToString();
+            PersonCfg cfg;
+            if (Cfg.PersonCfgMap != null && Cfg.PersonCfgMap.TryGetValue(roleId, out cfg))
+                return cfg.name;
+            return roleId.ToString();
+        }
+
         public override string OnToString(int _type = 0)
         {
-            if (this.subType == 1) return $"恋人数量≥{this.threshold}";
-            if (this.subType == -1) return $"恋人数量≤{this.threshold}";
-            return $"恋人数量条件(未知)";
+            string text;
+            if (this.subType == 1)
+                text = $"恋人数量≥{this.threshold}";
+            else if (this.subType == -1)
+                text = $"恋人数量≤{this.threshold}";
+            else
+                return null;
+            return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
         }
 
         public override ValueTuple<float, float> OnGetProgress()
@@ -198,10 +221,16 @@ namespace LinceMultipleLovers.Patches
 
         public override string OnToString(int _type = 0)
         {
-            string ids = string.Join(",", this.roleIds);
-            if (this.childType == 1) return $"角色[{ids}]均为恋人";
-            if (this.childType == -1) return $"角色[{ids}]均非恋人";
-            return $"批量恋人检查(childType={this.childType})";
+            var names = this.roleIds.Select(id => CustomConditionerLoverCount.GetName(id));
+            string namesStr = string.Join("、", names);
+            string text;
+            if (this.childType == 1)
+                text = $"{namesStr}均为你的恋人";
+            else if (this.childType == -1)
+                text = $"{namesStr}均非你的恋人";
+            else
+                return null;
+            return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
         }
 
         public override ValueTuple<float, float> OnGetProgress()
@@ -320,19 +349,119 @@ namespace LinceMultipleLovers.Patches
 
         public override string OnToString(int _type = 0)
         {
+            string text;
             switch (this.childType)
             {
-                case 1: return $"角色{this.paramY}是第{this.paramX}个恋人";
-                case 2: return $"角色{this.paramY}是最后一个恋人";
-                case 3: return $"角色{this.paramX}先于角色{this.paramY}成为恋人";
-                default: return $"恋人顺序条件(childType={this.childType})";
+                case 1:
+                    text = $"{CustomConditionerLoverCount.GetName(this.paramY)}是你的第{this.paramX}个恋人";
+                    break;
+                case 2:
+                    text = $"{CustomConditionerLoverCount.GetName(this.paramY)}是你的最后一个恋人";
+                    break;
+                case 3:
+                    text = $"{CustomConditionerLoverCount.GetName(this.paramX)}先于{CustomConditionerLoverCount.GetName(this.paramY)}成为恋人";
+                    break;
+                default:
+                    return null;
             }
+            return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
         }
 
         public override ValueTuple<float, float> OnGetProgress()
         {
             bool matched = OnIsMatch();
             return new ValueTuple<float, float>(matched ? 1f : 0f, 1f);
+        }
+    }
+
+    // =========================================================================
+    //  subType = 14 : 至少有一个指定角色满足恋人条件
+    // =========================================================================
+
+    /// <summary>
+    /// 至少一个指定角色满足恋人条件
+    ///   [5207, 14, 1, id1, id2, …]  → 至少有一个指定角色是恋人
+    ///   [5207, 14, -1, id1, id2, …] → 至少有一个指定角色不是恋人
+    /// </summary>
+    public class CustomConditionerLoverAny : Conditioner
+    {
+        private int childType;
+        private List<int> roleIds = new List<int>();
+
+        public CustomConditionerLoverAny() { }
+
+        public CustomConditionerLoverAny(Conditioner _conditioner, List<double> _condition)
+            : base(_conditioner, _condition)
+        {
+            this.childType = (int)_condition[2];
+            for (int i = 3; i < _condition.Count; i++)
+            {
+                this.roleIds.Add((int)_condition[i]);
+            }
+        }
+
+        public override bool OnIsMatch()
+        {
+            if (this.roleIds.Count == 0)
+            {
+                if (ModConfig.DebugMode.Value)
+                    LinceMultipleLoversPlugin.Log.LogWarning("[Condition 5207.14] 未指定角色ID，返回false");
+                return false;
+            }
+
+            var allLoverIds = LoverIdInterceptor.GetAllLoverIds();
+            bool result;
+
+            if (this.childType == 1)
+            {
+                result = this.roleIds.Any(id => allLoverIds.Contains(id));
+            }
+            else if (this.childType == -1)
+            {
+                result = this.roleIds.Any(id => !allLoverIds.Contains(id));
+            }
+            else
+            {
+                LinceMultipleLoversPlugin.Log.LogWarning(
+                    $"[Condition 5207.14] 未知childType={this.childType}，返回false");
+                result = false;
+            }
+
+            if (ModConfig.DebugMode.Value)
+            {
+                var names = this.roleIds.Select(id => CustomConditionerLoverCount.GetName(id));
+                string namesStr = string.Join(",", names);
+                string check = this.childType == 1 ? "至少一个是恋人" : "至少一个非恋人";
+                LinceMultipleLoversPlugin.Log.LogInfo(
+                    $"[Condition 5207.14] 角色[{namesStr}] {check} → {result}");
+            }
+
+            return result;
+        }
+
+        public override string OnToString(int _type = 0)
+        {
+            var names = this.roleIds.Select(id => CustomConditionerLoverCount.GetName(id));
+            string namesStr = string.Join("、", names);
+            string text;
+            if (this.childType == 1)
+                text = $"{namesStr}中至少一人是你的恋人";
+            else if (this.childType == -1)
+                text = $"{namesStr}中至少一人不是你的恋人";
+            else
+                return null;
+            return HtmlTxtUtil.ToStr(text, this.OnIsMatch(), _type, false);
+        }
+
+        public override ValueTuple<float, float> OnGetProgress()
+        {
+            var allLoverIds = LoverIdInterceptor.GetAllLoverIds();
+            int matched;
+            if (this.childType == 1)
+                matched = this.roleIds.Count(id => allLoverIds.Contains(id));
+            else
+                matched = this.roleIds.Count(id => !allLoverIds.Contains(id));
+            return new ValueTuple<float, float>(matched > 0 ? 1f : 0f, 1f);
         }
     }
 }

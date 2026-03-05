@@ -1,5 +1,6 @@
 using Config;
 using Effect;
+using LinceMultipleLovers.Patches;
 using Sdk;
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ namespace LinceMultipleLovers.Patches
     /// 通过Prefix拦截GenEffector工厂方法，注入自定义效果类型5217。
     /// 
     /// 支持的格式:
+    ///   [5217, 0, X]       — 所有恋人好感 +X（不排除任何人）
     ///   [5217, 1, X]       — 除当前loverId外，所有恋人好感 +X
     ///   [5217, 1, X, Y]    — 除角色Y外，所有恋人好感 +X
     ///   [5217, 6, 1, X]    — 与角色X分手（等同于 LINCE BREAK X）
@@ -39,6 +41,7 @@ namespace LinceMultipleLovers.Patches
 
                 switch (subType)
                 {
+                    case 0:
                     case 1:
                         newEffector = new CustomEffectorAllLoversFavor(_effector, _effect);
                         break;
@@ -110,7 +113,7 @@ namespace LinceMultipleLovers.Patches
 
         public override void OnRun(float _rate = 1f, bool _toast = false)
         {
-            if (this.subType != 1)
+            if (this.subType != 0 && this.subType != 1)
             {
                 LinceMultipleLoversPlugin.Log.LogWarning(
                     $"[CustomEffect 5217] 未知subType={this.subType}，跳过执行");
@@ -125,8 +128,8 @@ namespace LinceMultipleLovers.Patches
             }
 
             int currentLoverId = loveData.loverId;
-            // 确定排除的角色id：有Y参数时排除Y，否则排除当前loverId
-            int skipId = this.excludeRoleId > 0 ? this.excludeRoleId : currentLoverId;
+            // subType=0时不排除任何人; subType=1时有Y参数排除Y，否则排除当前loverId
+            int skipId = this.subType == 0 ? -1 : (this.excludeRoleId > 0 ? this.excludeRoleId : currentLoverId);
             var allLoverIds = LoverIdInterceptor.GetAllLoverIds();
             float favorChange = this.value * _rate;
 
@@ -201,12 +204,14 @@ namespace LinceMultipleLovers.Patches
 
         public override string OnToString(float _rate = 1f, int _type = 0)
         {
-            if (this.subType == 1)
+            if (this.subType == 0 || this.subType == 1)
             {
                 float displayValue = this.value * _rate;
                 string sign = displayValue >= 0 ? "+" : "";
+                if (this.subType == 0)
+                    return $"所有恋人好感{sign}{displayValue:0.#}";
                 if (this.excludeRoleId > 0)
-                    return $"其他恋人(除{this.excludeRoleId})好感{sign}{displayValue:0.#}";
+                    return $"其他恋人(除{CustomConditionerLoverCount.GetName(this.excludeRoleId)})好感{sign}{displayValue:0.#}";
                 return $"其他恋人好感{sign}{displayValue:0.#}";
             }
             return null;
@@ -319,7 +324,7 @@ namespace LinceMultipleLovers.Patches
 
         public override string OnToString(float _rate = 1f, int _type = 0)
         {
-            return $"与角色{this.targetRoleId}分手";
+            return $"与{CustomConditionerLoverCount.GetName(this.targetRoleId)}分手";
         }
     }
 
@@ -387,7 +392,7 @@ namespace LinceMultipleLovers.Patches
         public override string OnToString(float _rate = 1f, int _type = 0)
         {
             if (this.targetRoleId > 0)
-                return $"角色{this.targetRoleId}恋人融洽度设为{this.fixValue}";
+                return $"{CustomConditionerLoverCount.GetName(this.targetRoleId)}恋人融洽度设为{this.fixValue}";
             return $"恋人融洽度设为{this.fixValue}";
         }
     }
