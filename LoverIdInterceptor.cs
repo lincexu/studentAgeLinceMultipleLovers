@@ -14,9 +14,14 @@ namespace LinceMultipleLovers
     {
         /// <summary>
         /// loverId锁定标志。锁定后，自动切换loverId的补丁将被跳过。
-        /// 通过 LINCE LOVERID LOCK/UNLOCK 控制。
+        /// 通过 LINCE LOVERID LOCK/UNLOCK 控制运行时锁定，或通过配置项“锁定loverId”持久锁定。
         /// </summary>
-        public static bool LoverIdLocked { get; set; } = false;
+        private static bool _runtimeLocked = false;
+        public static bool LoverIdLocked
+        {
+            get => _runtimeLocked || ModConfig.LockLoverId.Value;
+            set => _runtimeLocked = value;
+        }
 
         /// <summary>
         /// 从游戏的LoveData中获取historyLoverIds

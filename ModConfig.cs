@@ -13,6 +13,7 @@ namespace LinceMultipleLovers
         public static ConfigEntry<bool> AlwaysSingleCheck { get; private set; } = null!;
         public static ConfigEntry<bool> AllowLoveActivity { get; private set; } = null!;
         public static ConfigEntry<bool> ForceNoLoveHistory { get; private set; } = null!;
+        public static ConfigEntry<bool> LockLoverId { get; private set; } = null!;
         public static ConfigEntry<bool> DebugMode { get; private set; } = null!;
         public static ConfigEntry<string> FeedbackInfo { get; private set; } = null!;
 
@@ -53,6 +54,13 @@ namespace LinceMultipleLovers
                 "开启时，主角始终被判定为无恋爱经历（condition [11,3] 始终返回true）。关闭时正常验证historyLover"
             );
 
+            LockLoverId = config.Bind(
+                "通用设置",
+                "锁定loverId",
+                false,
+                "开启后 loverId 不再自动切换（持久配置，区别于控制台 LINCE LOVERID LOCK 的运行时锁定）"
+            );
+
             DebugMode = config.Bind(
                 "调试设置",
                 "启用调试日志",
@@ -74,6 +82,7 @@ namespace LinceMultipleLovers
             AlwaysSingleCheck.SettingChanged += OnSettingChanged;
             AllowLoveActivity.SettingChanged += OnSettingChanged;
             ForceNoLoveHistory.SettingChanged += OnSettingChanged;
+            LockLoverId.SettingChanged += OnSettingChanged;
             DebugMode.SettingChanged += OnSettingChanged;
 
             LinceMultipleLoversPlugin.Log.LogInfo("配置初始化完成");
