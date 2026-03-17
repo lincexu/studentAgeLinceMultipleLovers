@@ -14,9 +14,11 @@ namespace LinceMultipleLovers.Patches
     /// <summary>
     /// 自定义效果补丁
     /// 
-    /// 通过Prefix拦截GenEffector工厂方法，注入自定义效果类型5217。
+    /// 通过Prefix拦截GenEffector工厂方法，注入自定义效果类型5217/5001。
     /// 
     /// 支持的格式:
+    ///   [5001, 1, X]       — 当前年级设置为X
+    ///   [5001, 2, X, Y]    — 当前年月设置为X年Y月
     ///   [5217, 0, X]       — 所有恋人好感 +X（不排除任何人）
     ///   [5217, 1, X]       — 除当前loverId外，所有恋人好感 +X
     ///   [5217, 1, X, Y]    — 除角色Y外，所有恋人好感 +X
@@ -31,7 +33,7 @@ namespace LinceMultipleLovers.Patches
                 return true;
 
             int type = (int)_effect[0];
-            if (type != 5217)
+            if (type != 5217 && type != 5001)
                 return true; // 非自定义类型，走原版逻辑
 
             try
@@ -39,22 +41,39 @@ namespace LinceMultipleLovers.Patches
                 int subType = (int)_effect[1];
                 Effector newEffector;
 
-                switch (subType)
+                if (type == 5001)
                 {
-                    case 0:
-                    case 1:
-                        newEffector = new CustomEffectorAllLoversFavor(_effector, _effect);
-                        break;
-                    case 6:
-                        newEffector = new CustomEffectorBreakUp(_effector, _effect);
-                        break;
-                    case 7:
-                        newEffector = new CustomEffectorLoverFix(_effector, _effect);
-                        break;
-                    default:
-                        LinceMultipleLoversPlugin.Log.LogWarning(
-                            $"[CustomEffect 5217] 未知subType={subType}，跳过");
-                        return true;
+                    switch (subType)
+                    {
+                        case 1:
+                        case 2:
+                            newEffector = new CustomEffectorSetGradeTime(_effector, _effect);
+                            break;
+                        default:
+                            LinceMultipleLoversPlugin.Log.LogWarning(
+                                $"[CustomEffect 5001] 未知subType={subType}，跳过");
+                            return true;
+                    }
+                }
+                else
+                {
+                    switch (subType)
+                    {
+                        case 0:
+                        case 1:
+                            newEffector = new CustomEffectorAllLoversFavor(_effector, _effect);
+                            break;
+                        case 6:
+                            newEffector = new CustomEffectorBreakUp(_effector, _effect);
+                            break;
+                        case 7:
+                            newEffector = new CustomEffectorLoverFix(_effector, _effect);
+                            break;
+                        default:
+                            LinceMultipleLoversPlugin.Log.LogWarning(
+                                $"[CustomEffect 5217] 未知subType={subType}，跳过");
+                            return true;
+                    }
                 }
 
                 newEffector.toRoleId = _toRoleId;
@@ -65,16 +84,109 @@ namespace LinceMultipleLovers.Patches
                 if (ModConfig.DebugMode.Value)
                 {
                     LinceMultipleLoversPlugin.Log.LogInfo(
-                        $"[CustomEffect 5217] 创建效果: subType={subType}, 类型={newEffector.GetType().Name}");
+                        $"[CustomEffect {type}] 创建效果: subType={subType}, 类型={newEffector.GetType().Name}");
                 }
 
                 return false; // 跳过原版GenEffector
             }
             catch (Exception ex)
             {
-                LinceMultipleLoversPlugin.Log.LogError($"[CustomEffect 5217] 创建失败: {ex}");
+                LinceMultipleLoversPlugin.Log.LogError($"[CustomEffect] 创建失败: {ex}");
                 return true; // 出错时走原版（会输出"无此效果"）
             }
+        }
+    }
+
+    /// <summary>
+    /// 时间/年级设置效果 (类型5001)
+    ///
+    /// 格式:
+    ///   [5001, 1, X]    -> 当前年级设置为X（对齐控制台1202逻辑）
+    ///   [5001, 2, X, Y] -> 当前年月设置为X年Y月（对齐控制台1402逻辑）
+    /// </summary>
+    public class CustomEffectorSetGradeTime : Effector
+    {
+        private int subType;
+        private int yearOrGrade;
+        private int month;
+
+        public CustomEffectorSetGradeTime() { }
+
+        public CustomEffectorSetGradeTime(Effector _effector, List<float> _effect)
+            : base(_effector, _effect)
+        {
+            this.subType = (int)_effect[1];
+            this.yearOrGrade = _effect.Count >= 3 ? (int)_effect[2] : 0;
+            this.month = _effect.Count >= 4 ? (int)_effect[3] : 0;
+        }
+
+        public override void OnRun(float _rate = 1f, bool _toast = false)
+        {
+            if (this.subType == 1)
+            {
+                if (this.yearOrGrade <= 0)
+                {
+                    LinceMultipleLoversPlugin.Log.LogWarning(
+                        $"[Effect 5001.1] 参数无效: grade={this.yearOrGrade}");
+                    return;
+                }
+
+                Role role = Singleton<RoleMgr>.Ins?.GetRole();
+                if (role == null)
+                {
+                    LinceMultipleLoversPlugin.Log.LogWarning("[Effect 5001.1] 主角Role为空，跳过");
+                    return;
+                }
+
+                role.SetGrade(this.yearOrGrade);
+                if (ModConfig.DebugMode.Value)
+                {
+                    LinceMultipleLoversPlugin.Log.LogInfo(
+                        $"[Effect 5001.1] 当前年级设置为: {this.yearOrGrade}");
+                }
+                return;
+            }
+
+            if (this.subType == 2)
+            {
+                if (this.yearOrGrade <= 0 || this.month <= 0)
+                {
+                    LinceMultipleLoversPlugin.Log.LogWarning(
+                        $"[Effect 5001.2] 参数无效: year={this.yearOrGrade}, month={this.month}");
+                    return;
+                }
+
+                if (Singleton<RoundMgr>.Ins == null)
+                {
+                    LinceMultipleLoversPlugin.Log.LogWarning("[Effect 5001.2] RoundMgr为空，跳过");
+                    return;
+                }
+
+                Singleton<RoundMgr>.Ins.SetTime(this.yearOrGrade, this.month);
+                if (ModConfig.DebugMode.Value)
+                {
+                    LinceMultipleLoversPlugin.Log.LogInfo(
+                        $"[Effect 5001.2] 当前年月设置为: {this.yearOrGrade}年{this.month}月");
+                }
+                return;
+            }
+
+            LinceMultipleLoversPlugin.Log.LogWarning($"[Effect 5001] 未知subType={this.subType}，跳过执行");
+        }
+
+        public override string OnToString(float _rate = 1f, int _type = 0)
+        {
+            if (this.subType == 1)
+            {
+                return $"当前年级设置为{this.yearOrGrade}";
+            }
+
+            if (this.subType == 2)
+            {
+                return $"当前年月设置为{this.yearOrGrade}年{this.month}月";
+            }
+
+            return null;
         }
     }
 

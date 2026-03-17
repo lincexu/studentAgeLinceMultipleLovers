@@ -582,7 +582,7 @@ namespace LinceMultipleLovers
                     Log.LogError($"应用CustomConditionPatch补丁失败: {ex}");
                 }
 
-                // 应用CustomEffectPatch - 自定义效果5217(全恋人好感变更)
+                // 应用CustomEffectPatch - 自定义效果5217/5001
                 Log.LogInfo("正在应用CustomEffect补丁...");
                 try
                 {
@@ -597,7 +597,7 @@ namespace LinceMultipleLovers
                         Harmony.Patch(genEffectorMethod,
                             prefix: new HarmonyMethod(typeof(Patches.CustomEffectPatch),
                                 nameof(Patches.CustomEffectPatch.GenEffector_Prefix)));
-                        Log.LogInfo("成功应用GenEffector补丁 (自定义效果5217)");
+                        Log.LogInfo("成功应用GenEffector补丁 (自定义效果5217/5001)");
                     }
                     else
                     {
@@ -635,6 +635,6 @@ namespace LinceMultipleLovers
     {
         public const string PLUGIN_GUID = "lince.multiplelovers";
         public const string PLUGIN_NAME = "LinceMultipleLovers";
-        public const string PLUGIN_VERSION = "0.1.4";
+        public const string PLUGIN_VERSION = "1.0.0";
     }
 }

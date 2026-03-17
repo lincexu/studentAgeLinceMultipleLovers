@@ -19,9 +19,9 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 - ✅ **控制台命令** - 支持LINCE系列调试命令（添加/移除恋人、设置loverId、执行effect等）
 - ✅ **恋人特性适配** - IncreaserOther中loverId相关效果遍历所有恋人生效
 - ✅ **好友特性倍率适配** - 陪伴人生观「亲密度→特性加成」对所有恋人生效
-- ✅ **loverId锁定** - 可临时锁定当前活跃恋人，阻止自动切换（重启游戏后失效）
+- ✅ **loverId锁定** - 可锁定当前活跃恋人，阻止自动切换
 - ✅ **自定义条件5207** - 恋人数量/身份/顺序条件判断，可用于事件配置
-- ✅ **自定义效果5217** - 批量好感变更、分手、恋人融洽度设置等多用途效果
+- ✅ **自定义效果5217/5001** - 批量好感变更、分手、恋人融洽度、时间/年级设置
 - ✅ **存档兼容** - 完全兼容原版存档格式
 
 ## 三、安装方法
@@ -110,6 +110,8 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 | `5217, 1, X, Y` | 除角色id=Y外，所有恋人好感 +X             |
 | `5217, 6, 1, X` | 与角色X分手（等同 LINCE BREAK X）         |
 | `5217, 7, X, Y` | 角色Y的恋人融洽度设为X（对照原版 52,7,X） |
+| `5001, 1, X`    | 当前年级设置为X（对齐控制台1202）            |
+| `5001, 2, X, Y` | 当前年月设置为X年Y月（对齐控制台1402）       |
 
 > 注意恋人融洽度可能后续游戏会更新会失效，请慎重使用
 
@@ -138,7 +140,7 @@ LinceMultipleLovers 是《学生时代》游戏的多恋人系统Mod，允许玩
 | IncreaserOtherPatch | IncreaserOther | 恋人相关增益多恋人适配（3003/3910/3913/9） |
 | RoleMgrPatch | RoleMgr | 好友特性倍率(10001)亲密度加成多恋人适配 |
 | CustomConditionPatch | CommonEvtMgr | 自定义条件5207：恋人数量/身份/顺序判断 |
-| CustomEffectPatch | CommonEvtMgr | 自定义效果5217：好感/分手/融洽度等多用途效果 |
+| CustomEffectPatch | CommonEvtMgr | 自定义效果5217/5001：好感/分手/融洽度/时间/年级 |
 | LoveDataSocialTopicPatch | LoveData | 恋人话题系统 |
 
 ### 7.2 数据存储
@@ -217,7 +219,7 @@ linceMultipleLovers/
 │   ├── IncreaserOtherPatch.cs      # 恋人增益多恋人适配
 │   ├── RoleMgrPatch.cs             # 好友特性倍率多恋人适配
 │   ├── CustomConditionPatch.cs     # 自定义条件5207（恋人数量/身份/顺序判断）
-│   ├── CustomEffectPatch.cs        # 自定义效果5217（好感/分手/融洽度）
+│   ├── CustomEffectPatch.cs        # 自定义效果5217/5001（好感/分手/融洽度/时间/年级）
 │   └── LoveDataSocialTopicPatch.cs # 话题数据管理
 ├── COMPATIBILITY.md                # 兼容性文档
 ├── README.md                       # 本文件
@@ -252,6 +254,11 @@ A: 每个恋人每回合只能话题一次（已修改官方底层代码），�
 - 优化 LINCE LOVERID 命令：新增 LOCK/UNLOCK 子命令，可锁定当前loverId阻止自动切换
 - loverId锁定时 MapRoleViewPatch、MapRoleViewTopicPatch、QuickSocialViewPatch 不再自动切换
 - LoverIdInterceptor 新增 LoverIdLocked 属性
+
+### v0.9.0 (2026-03-17)
+- 新增自定义效果5001：年级设置（`5001,1,X`）、年月设置（`5001,2,X,Y`），逻辑对齐控制台 1202/1402
+- README「自定义效果」章节补充 5001 的格式与说明
+- README 技术说明同步为自定义效果 5217/5001（含补丁说明与目录结构注释）
 
 ### v0.1.3 (2026-02-28)
 - 新增「强制无恋爱经历」配置项（condition [11,3] 始终返回true）
