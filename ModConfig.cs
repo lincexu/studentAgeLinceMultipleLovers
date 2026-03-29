@@ -64,7 +64,7 @@ namespace LinceMultipleLovers
             DebugMode = config.Bind(
                 "调试设置",
                 "启用调试日志",
-                false,
+                true,
                 "启用调试日志输出"
             );
 
@@ -72,8 +72,8 @@ namespace LinceMultipleLovers
             FeedbackInfo = config.Bind(
                 "关于",
                 "反馈说明",
-                "当前Mod仍处于测试版本，如遇Bug请联系: lincexu@qq.com",
-                "【重要】当前Mod仍处于测试版本，如遇Bug请联系: lincexu@qq.com"
+                "如遇Bug请联系: lincexu@qq.com",
+                "【重要】如遇Bug请联系: lincexu@qq.com"
             );
 
             // 监听配置变更事件
